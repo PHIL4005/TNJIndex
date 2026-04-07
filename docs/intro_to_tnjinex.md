@@ -42,11 +42,10 @@
 | 文档 | 用途 |
 |------|------|
 | [`glossary.md`](glossary.md) | 术语与中英文对照，写需求/代码时统一用词 |
-| [`requirements/mvp_requirement.md`](requirements/mvp_requirement.md) | MVP 用户故事、功能点、验收与 out of scope |
-| [`planning/implementation_plan.md`](planning/implementation_plan.md) | 技术栈结论、Phase 顺序与每阶段交付 |
-| [`architecture/architecture.md`](architecture/architecture.md) | 系统上下文、组件、数据流；文末可记决策 |
+| [`mvp/00_roadmap.md`](mvp/00_roadmap.md) | Phase 总览、核心用例、参考产品；技术前置依赖 |
+| [`architecture/tech_design.md`](architecture/tech_design.md) | 数据模型、采集方案、AI 标注管线、检索架构、网站架构 |
 | [`standards/development_rule.md`](standards/development_rule.md) | 开发底线与给 AI 的硬约束 |
 | [`standards/uiux_rule.md`](standards/uiux_rule.md) | 设计 token、无障碍与文案语气 |
-| [`phases/`](phases/) | 按 Phase 拆分的增量说明（文件名与 `implementation_plan` 中编号一致） |
+| [`mvp/`](mvp/) | 按 Phase 拆分的增量说明（`01_` `02_` … 与 roadmap 编号一致） |
 
 改代码或补文档时，优先引用 **MVP 中的功能编号**（如 `MVP-Fxx`），避免在 Phase 文档里重复粘贴整段需求。
