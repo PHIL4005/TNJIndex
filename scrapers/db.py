@@ -72,6 +72,14 @@ def get_all_phashes(conn: sqlite3.Connection) -> list[str]:
     return [row["phash"] for row in rows]
 
 
+def get_all_source_notes(conn: sqlite3.Connection) -> set[str]:
+    """Distinct source_note values (non-empty), for crawler resume / dedup by URL."""
+    rows = conn.execute(
+        "SELECT DISTINCT source_note FROM items WHERE source_note IS NOT NULL AND TRIM(source_note) != ''"
+    ).fetchall()
+    return {row["source_note"] for row in rows}
+
+
 def update_annotation(
     conn: sqlite3.Connection,
     item_id: int,
