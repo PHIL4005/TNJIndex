@@ -1,6 +1,6 @@
 # Phase 01 — 数据基础
 
-> 状态: 规划中 | 依赖: `tech_design` §1 §2 定稿  
+> 状态: 进行中（S1～S2 已完成）| 依赖: `tech_design` §1 §2 定稿  
 > 目标: 定义 Item Schema，跑通采集 → 入库；本地库 ≥ 500 条规范化 Item。
 
 ---
@@ -9,8 +9,8 @@
 
 | # | 步骤 | 产出 | 验收方式 |
 |---|------|------|---------|
-| S1 | 项目初始化 | Python 骨架 + 目录结构 | `uv run python -c "import PIL"` 成功 |
-| S2 | 建 SQLite DB | `tnjindex.db` + 建表脚本 | `.schema` 输出与 §1 字段完全一致 |
+| S1 | 项目初始化 ✅ | Python 骨架 + 目录结构 | `uv run python -c "import PIL"` 成功 |
+| S2 | 建 SQLite DB ✅ | `tnjindex.db` + 建表脚本 | `.schema` 输出与 §1 字段完全一致 |
 | S3 | 通用 ingest | `ingest.py`：规范化 → 缩略图 → 去重 → 写 DB | 5 张测试图入库；重复图被跳过 |
 | S4 | KYM 爬虫 | `kym.py`：爬分页 + 下载 + 触发 ingest | DB ≥ 200 条，无重复 |
 | S5 | 补量入库 | 手动收集图片走 ingest.py | DB 总记录 ≥ 500，全部 `annotation_status = raw` |
@@ -22,9 +22,9 @@
 **目标**: 建立可复现的 Python 开发环境与目录骨架。
 
 **任务**:
-- [ ] `uv init` 初始化项目，生成 `pyproject.toml`
-- [ ] 添加依赖：`requests`、`beautifulsoup4`、`Pillow`、`imagehash`
-- [ ] 按 §2 创建目录结构：
+- [x] `uv init` 初始化项目，生成 `pyproject.toml`
+- [x] 添加依赖：`requests`、`beautifulsoup4`、`Pillow`、`imagehash`
+- [x] 按 §2 创建目录结构：
   ```
   data/images/originals/
   data/images/thumbnails/
@@ -32,11 +32,11 @@
   scrapers/
   pipelines/
   ```
-- [ ] 添加 `.gitignore`（忽略 `data/`、`.venv/`、`*.db`）
+- [x] 添加 `.gitignore`（忽略 `data/`、`.venv/`、`*.db`）
 
 **验收**:
-- [ ] `uv run python -c "import PIL, imagehash, bs4"` 无报错
-- [ ] 目录结构与 §2 一致
+- [x] `uv run python -c "import PIL, imagehash, bs4"` 无报错
+- [x] 目录结构与 §2 一致
 
 ---
 
@@ -45,14 +45,14 @@
 **目标**: 按 §1 Schema 建表，提供初始化脚本，支持幂等重建。
 
 **任务**:
-- [ ] 编写 `scrapers/db.py`：封装连接、建表、基础 CRUD
-- [ ] `items` 表字段：`id`、`title`、`image_path`、`thumbnail_path`、`tags`（JSON）、`description`、`source_note`、`annotation_status`、`created_at`
-- [ ] `annotation_status` 约束：只允许 `raw` / `annotated`
-- [ ] 建表逻辑使用 `CREATE TABLE IF NOT EXISTS`（幂等）
+- [x] 编写 `scrapers/db.py`：封装连接、建表、基础 CRUD
+- [x] `items` 表字段：`id`、`title`、`image_path`、`thumbnail_path`、`tags`（JSON）、`description`、`source_note`、`annotation_status`、`phash`、`created_at`
+- [x] `annotation_status` 约束：只允许 `raw` / `annotated`
+- [x] 建表逻辑使用 `CREATE TABLE IF NOT EXISTS`（幂等）
 
 **验收**:
-- [ ] 运行 `uv run python scrapers/db.py`（或 `init` 命令）后 `tnjindex.db` 出现
-- [ ] `sqlite3 data/db/tnjindex.db ".schema items"` 输出与 §1 字段完全一致
+- [x] 运行 `uv run python scrapers/db.py`（或 `init` 命令）后 `tnjindex.db` 出现
+- [x] `sqlite3 data/db/tnjindex.db ".schema items"` 输出与 §1 字段完全一致
 
 ---
 
@@ -68,7 +68,7 @@
   4. **写 DB**：插入 `items` 记录，`title = ""`，`tags = []`，`annotation_status = raw`
 - [ ] pHash 值存入 DB（需在 `items` 表加 `phash` 字段，或维护内存集合——**建议加字段，方便后续查询**）
 
-> ⚠️ pHash 字段未在 §1 中定义，需在此步骤同步更新 `tech_design.md §1`。
+> `phash` 已写入 `tech_design.md` §1；S3 实现 ingest 时写入该列。
 
 **验收**:
 - [ ] 手动放 5 张图（含 1 张与已入库图相似的）至临时目录，批量调用 `ingest_image`
@@ -118,7 +118,7 @@
 ## 技术说明
 
 - **依赖包**: `requests`、`beautifulsoup4`、`Pillow`、`imagehash`
-- **模型变更**: pHash 字段（`phash TEXT`）需补充至 `tech_design.md §1`
+- **模型变更**: `phash` 已纳入 `tech_design.md` §1 与 `items` 表
 - **影响模块**: `scrapers/db.py`、`scrapers/ingest.py`、`scrapers/kym.py`
 - **注意事项**: `data/` 目录不入 Git；`tnjindex.db` 不入 Git
 
