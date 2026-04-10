@@ -11,6 +11,7 @@ version = "0.1.0"
 description = "Add your description here"
 requires-python = ">=3.9"
 dependencies = [
+    "aiotieba>=4.6.0",
     "beautifulsoup4>=4.14.3",
     "imagehash>=4.3.2",
     "pillow>=11.3.0",
