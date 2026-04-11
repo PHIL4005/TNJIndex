@@ -10,13 +10,23 @@ per line). After deleting unwanted files, ingest with::
 
     uv run python scrapers/ingest.py --dir <staging_dir> --source "tieba:<kw>"
 
+若仍有右下角客户端水印，可对整目录执行
+``uv run python scrapers/tieba_blur_corner.py --input-dir <staging> --output-dir <out>``（或加 ``--in-place`` 直接覆盖原文件），对右下角小范围高斯模糊。
+
 **排序说明**: ``--sort reply``（按回复时间）在未登录时接口可能返回空列表，默认使用
 ``hot``。需要 ``reply`` 时请在 ``--cookie-file`` 中提供含 ``BDUSS`` 的 Cookie。
+
+**Cookie 文件**（如 ``scrapers/tieba_cookie.txt``）**仍是可选的**：不设也能用 ``hot``/``create``
+拉列表；提供完整 Cookie 时，下载图片会带上 Cookie，且可解析 ``BDUSS``/``STOKEN`` 改善
+``reply`` 等依赖登录的排序。
 
 **依赖**: ``aiotieba``（见 ``pyproject.toml``）。
 
 默认多翻列表页、多扫帖；每帖只保留按楼层顺序的**前 3 张**图（``--max-images-per-thread``，
 ``0`` 表示不限制）。可用 ``--pages`` / ``--max-threads`` 加大覆盖面。
+
+合并多页列表后**保持贴吧接口返回顺序**（按 ``pn`` 先后、页内顺序；跨页重复 ``tid`` 保留
+首次出现），**不再**按回复数重排；``--skip-threads`` 在该顺序上跳过前 N 条。
 
 Usage::
 
@@ -173,10 +183,13 @@ async def _gather_threads(
     pages: int,
     min_replies: int,
     sort_type: ThreadSortType,
+    skip_pages: int,
 ) -> list[ThreadInfo]:
+    """Forum list order: ascending ``pn``, then API order; dedupe keeps first ``tid``."""
     seen: set[int] = set()
     out: list[ThreadInfo] = []
-    for pn in range(1, pages + 1):
+    start_pn = 1 + max(0, skip_pages)
+    for pn in range(start_pn, start_pn + pages):
         res = await client.get_threads(kw, pn=pn, rn=THREADS_RN, sort=sort_type)
         if res.err:
             log.warning("get_threads page %d: %s", pn, res.err)
@@ -194,9 +207,7 @@ async def _gather_threads(
             )
         await asyncio.sleep(random.uniform(0.4, 1.0))
 
-    filtered = [t for t in out if t.reply_num >= min_replies]
-    filtered.sort(key=lambda t: t.reply_num, reverse=True)
-    return filtered
+    return [t for t in out if t.reply_num >= min_replies]
 
 
 async def _collect_image_urls_for_thread(
@@ -288,9 +299,15 @@ async def _async_fetch_phase(
     stoken: str,
     allow_empty_threads: bool,
     max_images_per_thread: int | None,
-) -> tuple[list[ThreadInfo], list[ThreadInfo], dict[int, list[str]]]:
+    skip_pages: int,
+    skip_threads: int,
+) -> tuple[list[ThreadInfo], list[ThreadInfo], list[ThreadInfo], dict[int, list[str]]]:
     async with tb.Client(BDUSS=bduss, STOKEN=stoken) as client:
-        threads = await _gather_threads(client, kw, pages, min_replies, sort_type)
+        merged = await _gather_threads(
+            client, kw, pages, min_replies, sort_type, skip_pages
+        )
+        st = max(0, skip_threads)
+        threads = merged[st:] if st else merged
         picked: list[ThreadInfo] = []
         urls_by_tid: dict[int, list[str]] = {}
         for t in threads:
@@ -304,7 +321,7 @@ async def _async_fetch_phase(
                 continue
             picked.append(t)
             urls_by_tid[t.tid] = urls
-        return threads, picked, urls_by_tid
+        return merged, threads, picked, urls_by_tid
 
 
 def run_fetch(
@@ -322,6 +339,8 @@ def run_fetch(
     sort_name: str,
     allow_empty_threads: bool,
     max_images_per_thread: int | None,
+    skip_pages: int,
+    skip_threads: int,
 ) -> None:
     sort_type = _SORT_ALIASES.get(sort_name.lower())
     if sort_type is None:
@@ -334,7 +353,7 @@ def run_fetch(
     session = _session(cookie_file)
     polite_dl = not dry_run
 
-    threads, picked, urls_by_tid = asyncio.run(
+    merged, threads, picked, urls_by_tid = asyncio.run(
         _async_fetch_phase(
             kw,
             pages,
@@ -348,6 +367,8 @@ def run_fetch(
             stoken,
             allow_empty_threads,
             max_images_per_thread,
+            skip_pages,
+            skip_threads,
         )
     )
 
@@ -359,7 +380,12 @@ def run_fetch(
         )
 
     log.info(
-        "Threads after filter: %d candidate(s), using top %d (--max-threads)",
+        "Threads: %d merged (pages=%d, skip_pages=%d); after skip_threads=%d → %d candidate(s); "
+        "opened %d (--max-threads)",
+        len(merged),
+        pages,
+        skip_pages,
+        skip_threads,
         len(threads),
         len(picked),
     )
@@ -450,6 +476,20 @@ def _parse_args() -> argparse.Namespace:
         default=40,
         help="max threads to open (with images unless --allow-empty-threads)",
     )
+    p.add_argument(
+        "--skip-pages",
+        type=int,
+        default=0,
+        metavar="N",
+        help="skip first N forum list pages (get_threads pn starts at N+1)",
+    )
+    p.add_argument(
+        "--skip-threads",
+        type=int,
+        default=0,
+        metavar="N",
+        help="after merge (forum list order), skip first N threads before opening posts",
+    )
     p.add_argument("--min-replies", type=int, default=0, help="minimum reply count")
     p.add_argument("--thread-pages", type=int, default=2, help="max get_posts pages per thread")
     p.add_argument(
@@ -532,4 +572,6 @@ if __name__ == "__main__":
         sort_name=args.sort_name,
         allow_empty_threads=args.allow_empty_threads,
         max_images_per_thread=max_img,
+        skip_pages=max(0, args.skip_pages),
+        skip_threads=max(0, args.skip_threads),
     )
