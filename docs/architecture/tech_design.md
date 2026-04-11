@@ -116,19 +116,22 @@ data/
 
 将 `annotation_status = raw` 的 Item 批量处理，一次 Vision API 调用同时输出 `title`、`tags`、`description` 三个字段，写回 DB 并更新状态为 `annotated`。
 
-### Vision 模型选型
+### Vision 模型选型（M1 定稿）
 
-**待实测确定**，候选：`gpt-4o`（OpenAI）和 `qwen-vl-max`（阿里云 DashScope）。
+**默认**：OpenAI **`gpt-4o`**（`TNJ_VISION_PROVIDER` 未设置或为 `openai`；可用 `TNJ_VISION_MODEL` 覆盖具体型号）。
 
-选型流程：
-1. 取 10～20 张典型梗图，两个模型各跑一遍相同 prompt
-2. 人工对比：标注一致性、`tags` 的准确度、`description` 的语感
-3. 记录实测 token 用量，按当时价目表估算 500 张总费用
-4. 择优写入本节，另一个进 `<details>` 存档
+**备选**：阿里云 DashScope **`qwen-vl-max`**（设置 `TNJ_VISION_PROVIDER=dashscope`，密钥 `DASHSCOPE_API_KEY`）。
 
-> 两者均支持 JSON mode（结构化输出），切换成本低，代码层用接口抽象隔离，换模型不改业务逻辑。
+实现与仓库内 [`pipelines/vision_client.py`](pipelines/vision_client.py) 对齐；小样本对比可运行：
 
-### 单次调用 Prompt 设计（草稿）
+- `uv run python -m pipelines.vision_eval --limit 20 --provider openai`
+- `uv run python -m pipelines.vision_eval --limit 20 --provider dashscope`
+
+> 两者均支持 JSON 结构化输出；切换只改环境变量，业务逻辑不变。全库跑批前仍建议用 10～20 张图做一次人工对比与费用预估，必要时改 `TNJ_VISION_*` 后重跑。
+
+### 单次调用 Prompt 设计（定稿）
+
+与代码常量 [`pipelines/prompts.py`](pipelines/prompts.py) 保持一致：
 
 ```
 你是一个《猫和老鼠》梗图标注专家。分析这张图片，用 JSON 返回以下字段：
@@ -141,8 +144,6 @@ data/
 
 只返回 JSON，不要其他内容。
 ```
-
-> Prompt 在实测阶段迭代，最终版本与模型一起写入本节。
 
 ### 处理管线
 
@@ -157,7 +158,7 @@ DB 查询 annotation_status = raw 的 Item
     │
     ├─ 成功 → 写回 title / tags / description，status = annotated
     │
-    └─ 失败 → 记录 error_log，status 保持 raw，支持重试
+    └─ 失败 → stderr 日志记录原因，status 保持 raw，支持重试
     │
     ▼
 [3] 批量完成后，输出统计：成功 N 条 / 失败 M 条 / 预估费用
@@ -167,10 +168,12 @@ DB 查询 annotation_status = raw 的 Item
 
 ### 脚本
 
-- `pipelines/annotate.py`：读取 raw items → 调 Vision API → 写回 DB，支持 `--limit N` 增量运行与断点续跑。
+- `pipelines/annotate.py`：读取 `raw` items → 调 Vision API → 写回 DB；`--limit N`、`--dry-run`；断点续跑（已 `annotated` 不再选中）。
+- `pipelines/vision_eval.py`：不写库，对样本输出 JSONL 便于对比模型。
+- `pipelines/vec_smoke.py`：sqlite-vec + `item_embeddings` 最小写入与 MATCH 冒烟（M1）。
 
 <details>
-<summary>候选方案对比（模型待实测确定）</summary>
+<summary>候选方案对比（归档）</summary>
 
 **GPT-4o（OpenAI）**
 - 优点：中英文理解强，JSON mode 稳定，生态文档丰富

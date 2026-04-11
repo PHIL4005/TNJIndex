@@ -7,11 +7,35 @@ Usage:
 """
 
 import json
-import sqlite3
 from pathlib import Path
 from typing import Optional
 
 DB_PATH = Path(__file__).parent.parent / "data" / "db" / "tnjindex.db"
+
+
+def _sqlite3_module():
+    """Prefer stdlib sqlite3 when it supports extensions; else pysqlite3 (e.g. macOS system Python)."""
+    import sqlite3 as std_sqlite3
+
+    try:
+        c = std_sqlite3.connect(":memory:")
+        c.enable_load_extension(True)
+        c.close()
+        return std_sqlite3
+    except AttributeError:
+        pass
+    try:
+        import pysqlite3.dbapi2 as pysqlite3  # type: ignore[import-not-found]
+
+        return pysqlite3
+    except ImportError as e:
+        raise RuntimeError(
+            "当前 Python 的 sqlite3 不支持 load_extension，且未安装 pysqlite3；"
+            "无法加载 sqlite-vec。请安装 pysqlite3 或使用支持扩展的 Python 构建。"
+        ) from e
+
+
+sqlite3 = _sqlite3_module()
 
 CREATE_ITEMS_TABLE = """
 CREATE TABLE IF NOT EXISTS items (
