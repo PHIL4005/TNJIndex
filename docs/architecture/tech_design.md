@@ -120,7 +120,7 @@ data/
 
 **默认**：OpenAI **`gpt-4o`**（`TNJ_VISION_PROVIDER` 未设置或为 `openai`；可用 `TNJ_VISION_MODEL` 覆盖具体型号）。
 
-**备选**：阿里云 DashScope **`qwen-vl-max`**（设置 `TNJ_VISION_PROVIDER=dashscope`，密钥 `DASHSCOPE_API_KEY`）。
+**备选**：阿里云 DashScope（设置 `TNJ_VISION_PROVIDER=dashscope`，密钥 `DASHSCOPE_API_KEY`）；代码默认多模态型号 **`Qwen3.5-Flash-2026-02-23`**，可用 `TNJ_VISION_MODEL` 覆盖。
 
 实现与仓库内 [`pipelines/vision_client.py`](pipelines/vision_client.py) 对齐；小样本对比可运行：
 
@@ -134,12 +134,12 @@ data/
 与代码常量 [`pipelines/prompts.py`](pipelines/prompts.py) 保持一致：
 
 ```
-你是一个《猫和老鼠》梗图标注专家。分析这张图片，用 JSON 返回以下字段：
+你是一个《猫和老鼠》梗图标注专家，负责为语义检索系统生成索引文本。分析这张图片，用 JSON 返回以下字段：
 
 {
   "title": "snake_case 短标题，描述画面核心内容，同时适合作为文件名，仅含小写英文/数字/下划线，≤ 80 字符",
-  "tags": ["3～8 个简短标签，覆盖：角色、情绪/氛围、画面动作、可用于的社区语境"],
-  "description": "1～3 句话，描述画面内容与氛围，以及这张图「迷之契合」什么类型的讨论语境，≤ 500 字符"
+  "tags": ["5～10 个简短标签，覆盖：角色名、情绪/表情、画面动作、常见使用场景、网络梗语境，中英文均可"],
+  "description": "专为语义检索设计的索引文本，≤ 500 字符。写法要求：用网友发帖、评论、转发时会实际输入的语言（而非旁观者叙述）。需包含：①画面的核心情绪或动作（如"假装没看见""被迫营业""一脸嫌弃"）；②这张图最适合配什么样的文字或场景（如"回复催婚亲戚""老板突然@我""看到不想看的消息"）；③1～2 个用户可能直接搜索的短语（如"猫猫嫌弃表情""汤姆假笑"）。"
 }
 
 只返回 JSON，不要其他内容。
@@ -179,9 +179,9 @@ DB 查询 annotation_status = raw 的 Item
 - 优点：中英文理解强，JSON mode 稳定，生态文档丰富
 - 缺点：需境外网络/代理；价格以官网为准，需实测
 
-**Qwen-VL-Max（阿里云 DashScope）**
-- 优点：国内访问无障碍，中文语感好，有免费额度
-- 缺点：对《猫和老鼠》英文梗图的英文 tag 质量待验证
+**DashScope 多模态（默认 `Qwen3.5-Flash-2026-02-23`；曾对比 `qwen-vl-max`）**
+- 优点：国内访问无障碍，中文语感好，可按百炼文档选用 Flash / VL 等型号
+- 缺点：具体型号对梗图英文 tag 质量需实测；型号以百炼控制台为准
 
 **一次调用 vs 分步调用**
 - 分步（先 description → 再提取 tags）质量略高，但 token 消耗翻倍
