@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>TNJIndex · 语义检索（本地）</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { sans: ['ui-sans-serif', 'system-ui', 'sans-serif'] },
+        },
+      },
+    };
+  </script>
+</head>
+<body class="min-h-screen bg-slate-950 text-slate-100 antialiased">
+  <div class="mx-auto max-w-6xl px-4 py-8">
+    <header class="mb-8">
+      <h1 class="text-xl font-semibold tracking-tight text-white">TNJIndex 语义检索</h1>
+      <p class="mt-1 text-sm text-slate-400">本地开发页 · 仅绑定 127.0.0.1</p>
+    </header>
+
+    <form id="search-form" class="mb-8 flex flex-col gap-3 sm:flex-row sm:items-center" autocomplete="off">
+      <input
+        id="q"
+        name="q"
+        type="search"
+        placeholder="输入自然语言或关键词…"
+        class="flex-1 rounded-lg border border-slate-700 bg-slate-900 px-4 py-3 text-sm text-white placeholder:text-slate-500 outline-none ring-emerald-500/40 transition focus:border-emerald-500/60 focus:ring-2"
+      />
+      <button
+        type="submit"
+        id="submit-btn"
+        class="rounded-lg bg-emerald-600 px-6 py-3 text-sm font-medium text-white transition hover:bg-emerald-500 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        搜索
+      </button>
+    </form>
+
+    <div id="status" class="mb-4 hidden text-sm"></div>
+    <div id="error" class="mb-4 hidden rounded-lg border border-red-900/60 bg-red-950/40 px-4 py-3 text-sm text-red-200"></div>
+    <div id="empty" class="mb-4 hidden rounded-lg border border-slate-800 bg-slate-900/50 px-4 py-8 text-center text-sm text-slate-400">
+      暂无结果，试试别的描述。
+    </div>
+
+    <div id="loading" class="mb-8 hidden flex items-center gap-3 text-sm text-slate-400">
+      <svg class="h-5 w-5 animate-spin text-emerald-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+      </svg>
+      <span>检索中…</span>
+    </div>
+
+    <div id="grid" class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3"></div>
+  </div>
+
+  <script>
+    const form = document.getElementById('search-form');
+    const input = document.getElementById('q');
+    const submitBtn = document.getElementById('submit-btn');
+    const grid = document.getElementById('grid');
+    const loading = document.getElementById('loading');
+    const empty = document.getElementById('empty');
+    const errorEl = document.getElementById('error');
+    const statusEl = document.getElementById('status');
+
+    function setVisible(el, on) {
+      el.classList.toggle('hidden', !on);
+    }
+
+    function escapeHtml(s) {
+      const d = document.createElement('div');
+      d.textContent = s;
+      return d.innerHTML;
+    }
+
+    function card(r) {
+      const imgUrl = r.thumbnail_url || r.image_url || '';
+      const tags = (r.tags || []).slice(0, 10).map((t) =>
+        `<span class="rounded-md bg-slate-800 px-2 py-0.5 text-xs text-slate-300">${escapeHtml(String(t))}</span>`
+      ).join(' ');
+      const desc = escapeHtml((r.description || '').slice(0, 220));
+      const imgBlock = imgUrl
+        ? `<img src="${escapeHtml(imgUrl)}" alt="" class="h-40 w-full object-cover" loading="lazy" />`
+        : `<div class="flex h-40 w-full items-center justify-center bg-slate-800 text-xs text-slate-500">无图</div>`;
+      return `
+        <article class="overflow-hidden rounded-xl border border-slate-800 bg-slate-900/60 shadow-sm transition hover:border-slate-700">
+          ${imgBlock}
+          <div class="p-4">
+            <div class="mb-2 flex items-center justify-between gap-2">
+              <span class="font-mono text-xs text-slate-500">#${r.id}</span>
+              <span class="rounded-full bg-emerald-950 px-2 py-0.5 text-xs font-medium text-emerald-400">${Number(r.score).toFixed(4)}</span>
+            </div>
+            <h2 class="mb-2 truncate text-sm font-medium text-white" title="${escapeHtml(r.title || '')}">${escapeHtml(r.title || '')}</h2>
+            <div class="mb-2 flex flex-wrap gap-1">${tags}</div>
+            <p class="line-clamp-2 text-xs leading-relaxed text-slate-400">${desc}</p>
+          </div>
+        </article>`;
+    }
+
+    async function runSearch() {
+      const q = input.value.trim();
+      grid.innerHTML = '';
+      setVisible(errorEl, false);
+      setVisible(empty, false);
+      setVisible(statusEl, false);
+
+      if (!q) {
+        setVisible(empty, true);
+        return;
+      }
+
+      setVisible(loading, true);
+      submitBtn.disabled = true;
+
+      try {
+        const url = new URL('/api/search', window.location.origin);
+        url.searchParams.set('q', q);
+        url.searchParams.set('k', '12');
+        const res = await fetch(url.toString());
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}));
+          throw new Error(body.detail || res.statusText || '请求失败');
+        }
+        const data = await res.json();
+        const results = data.results || [];
+        setVisible(loading, false);
+        submitBtn.disabled = false;
+
+        if (results.length === 0) {
+          setVisible(empty, true);
+          setVisible(statusEl, true);
+          statusEl.textContent = `「${q}」· 0 条`;
+          statusEl.className = 'mb-4 text-sm text-slate-400';
+          return;
+        }
+
+        setVisible(statusEl, true);
+        statusEl.textContent = `「${data.query}」· ${results.length} 条`;
+        statusEl.className = 'mb-4 text-sm text-slate-400';
+        grid.innerHTML = results.map(card).join('');
+      } catch (e) {
+        setVisible(loading, false);
+        submitBtn.disabled = false;
+        setVisible(errorEl, true);
+        errorEl.textContent = e.message || String(e);
+      }
+    }
+
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      runSearch();
+    });
+
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        runSearch();
+      }
+    });
+  </script>
+</body>
+</html>
