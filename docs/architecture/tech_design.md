@@ -230,7 +230,7 @@ DB 查询 annotation_status = raw 的 Item
 
 **被 embed 的内容**：将 `description` + `tags`（join 为空格分隔字符串）拼接后 embed，作为每条 Item 的语义向量。
 
-### 检索流程（Phase 02 CLI 验证）
+### 检索流程（Phase 02：CLI + 本地测试页验证）
 
 ```python
 # 伪代码
@@ -244,7 +244,7 @@ results = db.execute("""
 """, [query_vec])
 ```
 
-Phase 02 交付标准：CLI 输入自由文本，返回 Top-10 结果，人工抽检相关性通过。
+Phase 02 交付标准：以**同一检索逻辑**提供 **CLI** 与 **本地极简测试页**；输入自由文本返回 Top-K（如 10）；测试页须**展示对应缩略图/原图**以便主观与数据对照；固定查询集（10～20 条）人工抽检 Top-5 相关性通过（细则见 `docs/mvp/02_annotation_index.md`）。
 
 ### 结构化标签过滤（Phase 03）
 
