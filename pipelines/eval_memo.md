@@ -2,7 +2,7 @@
 
 固定查询集：[eval_queries.txt](eval_queries.txt)
 
-> **[2026-04-12] 重标注已触发**：目视验收发现标注质量问题（见「追加：不通过样例」），已重写 prompt 并升级模型至 `qwen3.6-plus`（S2-v2）。下方为旧标注下的抽检记录，保留归档。重标注完成后须重跑 `embed --force` 并重做目视验收，结果在本文件末尾追加新一轮记录。
+> **S2-v2（2026-04-12）已落地**：新 prompt + `qwen3.6-plus` + 全量重标注 + `embed --force` + `pick_image_for_vision`（OSS 公网 URL 或本机图）；主观确认 `eval_queries.txt` 检索效果较旧标注明显改善。下方「抽检记录」表为**旧向量/旧标注**下的 Top-5 id 归档，便于对照；若需正式留档「新 Top-5」，可再跑 `pipelines.search.search(q, k=5)` 填表。
 
 ## 环境快照（旧标注 / 参考归档）
 
@@ -45,3 +45,16 @@
 ### 追加：不通过样例（目视后填写）
 
 - **无**：14 条在宽松标准下均为 **pass（目视）**。若产品收紧为「Top-1 必须极贴」，优先回看 **#8 被迫营业**、**#14 smug cat meme energy**、**#11 首条 #27** 的排序与召回。
+
+---
+
+## S2-v2 后复检（2026-04-12）
+
+| 项目 | 结论 |
+|------|------|
+| 重标注 | 已执行（全库 `--force` + DashScope；详见 `02_annotation_index.md` S2-v2） |
+| 向量 | 已 `uv run python -m pipelines.embed --force` 与新区块文本对齐 |
+| 检索主观验收 | **通过**（与 S2-v2 前相比，相关性与标注—画面一致性明显提升） |
+| 固定查询集 | 仍以 `eval_queries.txt` 为准做回归；若需可再跑脚本刷新 Top-5 id 列 |
+
+**说明**：上表「Top-5 id」为旧 `item_embeddings` 下的快照；S2-v2 后不必强行对齐同一组 id，以带图页实际结果为准。

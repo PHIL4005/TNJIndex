@@ -117,7 +117,7 @@
 **任务**:
 
 - [x] 仅处理 `annotation_status = raw`；成功则 `annotated`，失败则保持 `raw` 并记录原因（日志或 `error_log` 表二选一，文档写明）。
-- [x] 支持 `--limit N` 增量与断点续跑（避免重复扣费：已 `annotated` 跳过）。
+- [x] 支持 `--limit N` 增量与断点续跑（避免重复扣费：已 `annotated` 跳过）；S2-v2 起支持 `--force` 重标已 `annotated`、`--enable-batch`（DashScope Batch）。
 
 **验收**:
 
@@ -195,7 +195,7 @@
 
 - **架构与字段**: 以 `docs/architecture/tech_design.md` §1 §3 §4 为准；embedding 不存 `items` 表，仅存向量表。
 - **索引技术**: 本 Phase **仅**依赖 **文本 embedding + sqlite-vec ANN** 满足「自然语言 / 关键词式短句 → 语义相似」；**不**将 UC-03 标签过滤、FTS5 列入本 Phase 交付。
-- **影响模块（预期）**: `pipelines/annotate.py`、`pipelines/embed.py`、检索与 CLI 模块、本地测试页入口、`scrapers/db.py`（若需迁移/新表）。
+- **影响模块（预期）**: `pipelines/annotate.py`、`pipelines/batch_utils.py`、`pipelines/paths.py`、`pipelines/embed.py`、检索与 CLI 模块、本地测试页入口、`scrapers/db.py`（若需迁移/新表）。
 - **注意事项**: API Key 与计费上限放在环境变量或本地 `.env`（勿提交仓库）；大批量跑之前先用 `--limit` 试跑。
 - **本地测试页**：`uv run python -m pipelines.app`（默认 `127.0.0.1:8000`，勿对公网暴露）。命令亦见 [`docs/README.md`](../README.md)。
 
@@ -215,7 +215,7 @@
 
 ---
 
-## S2-v2 · 重标注（2026-04-12）
+## S2-v2 · 重标注（2026-04-12）— 已闭环
 
 **触发原因**：S8 目视验收（见 `pipelines/eval_memo.md`）发现原 Vision 标注存在系统性质量问题：
 - `description` 为"梗图解说体"，充斥情感推断与叙事，与用户实际搜索输入脱节
@@ -227,6 +227,9 @@
 - 升级模型：`DEFAULT_MODEL_DASHSCOPE` → `qwen3.6-plus`
 - `pipelines/annotate.py` 新增 `--force`（重标注已 annotated 条目）、`--enable-batch`（DashScope Batch File API，约 50% 费率）
 - 新增 `pipelines/batch_utils.py`：Batch File API 封装，含 `enable_thinking=false`
+- `pipelines.paths.pick_image_for_vision`：本机 `data/images/...` 优先；否则使用 DB 中公网 **OSS `https://` URL**（Vision 侧拉取，不落盘）
+
+**验收（2026-04-12）**：全量 `annotate --force` + `embed --force` 后，主观确认 `eval_queries.txt` 检索质量较 S2-v2 前明显提升；`eval_memo.md` 已写 S2-v2 后复检表。
 
 **重跑命令**：
 ```bash

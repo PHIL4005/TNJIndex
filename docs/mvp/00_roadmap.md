@@ -55,7 +55,8 @@ MVP 交付物是一个**可公开访问的网站**，满足以下用例：
 ### Phase 02 · AI 标注与索引
 
 > 详细文档：[`02_annotation_index.md`](02_annotation_index.md)  
-> ✅ **已完成**：Phase 01 完成；`tech_design` §3 / §4 定稿；全量标注 + 向量索引；固定查询集与抽检见 `pipelines/eval_queries.txt`、`pipelines/eval_memo.md`。
+> ✅ **已完成**：Phase 01 完成；`tech_design` §3 / §4 定稿；全量标注 + 向量索引；固定查询集与抽检见 `pipelines/eval_queries.txt`、`pipelines/eval_memo.md`。  
+> **S2-v2（2026-04-12）**：prompt 与 DashScope 模型升级、OSS URL 标注路径、Batch 可选；全量重标 + 重 embed 后复检已记入 `eval_memo.md`。
 
 **目标**：跑通「原始图像 → 标签/描述/向量 → 可搜索索引」全管线；在 **CLI + 本地极简测试页** 上验证语义检索质量（测试页须**展示检索到的图片**），再进入 Phase 03。
 

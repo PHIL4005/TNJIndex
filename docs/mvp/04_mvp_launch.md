@@ -91,10 +91,10 @@ TNJIndex/
 
 #### ⚠️ 搜索质量诊断与优化
 
-> 当前 `pipelines/search.py` 已实现 sqlite-vec KNN，但在实际查询中效果差强人意。  
-> S1 开始前须先定位根因，再决定"修补"还是"重写"。
+> **更新（2026-04-12）**：S1-a 目视 + 复盘认定**主因是 Vision 标注文本**（旧 prompt / 模型），而非 sqlite-vec 或纯「中文 query」问题。已通过 **S2-v2**（`pipelines/prompts.py`、`qwen3.6-plus`、全量 `annotate --force`、`embed --force`、`pick_image_for_vision` OSS）显著改善主观检索；详见 `pipelines/eval_memo.md`、`docs/mvp/02_annotation_index.md` S2-v2。  
+> **S1 本段 checklist**：诊断与「标注+向量」侧优化已在 Phase 02 闭环；**FTS5 / query 扩写** 等项留作 Phase 04 若仍不满意再评估（非 S1 前置阻塞）。
 
-可能原因（需逐一排查）：
+可能原因（历史排查表，已对照）：
 
 | 方向 | 具体问题 |
 |------|---------|
@@ -102,20 +102,18 @@ TNJIndex/
 | 向量相似度 | sqlite-vec 默认距离度量是否与 embedding 模型匹配（L2 vs cosine）|
 | 召回策略 | 仅纯向量检索，无关键词兜底；少见标签或精确词无法命中 |
 | top-k | 固定 k=10 可能过少，分页场景需支持更大 offset |
+| **标注质量（S2-v2 主因）** | description/tags 与画面及用户检索词脱节 → 已用新 prompt + 重 embed 处理 |
 
 诊断方式：用 `pipelines/eval_queries.txt` 固定查询集跑当前结果，人工标注相关性，再对比改动后结果。
 
-- [ ] 诊断：固定查询集跑当前检索，记录各条 Top-5 结果质量
-- [ ] 根据诊断结论，选择以下一项或组合：
-  - query 预处理（中文扩写 or 翻译为英文 + 中文）
-  - 改用 cosine 距离（重建 `item_embeddings` 或修改查询）
-  - 加入关键词混合检索（SQLite FTS5 或标签精确匹配兜底）
-- [ ] 优化后重跑固定查询集，对比前后结果
+- [x] 诊断：固定查询集 + 目视；根因见 `eval_memo.md`
+- [x] 标注与向量侧优化：S2-v2（Phase 02），非本 Phase 04 代码
+- [ ] （可选）若上线后仍弱：query 预处理 / cosine / FTS5 等——按需另开任务
 
 **验收**：
 - [ ] `uvicorn backend.main:app --reload` 本地启动无报错
 - [ ] curl 3 个端点返回符合 schema 的 JSON
-- [ ] 固定查询集 Top-5 主观满意，相比优化前有明显提升
+- [x] 固定查询集主观检索：S2-v2 后已确认明显改善（`eval_memo.md`）
 
 ---
 

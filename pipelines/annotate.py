@@ -7,6 +7,8 @@ Batch Vision annotation: raw → annotated.
   uv run python -m pipelines.annotate --force --enable-batch      # DashScope Batch API (50% cost)
 
 Requires OPENAI_API_KEY or DASHSCOPE_API_KEY per TNJ_VISION_PROVIDER.
+
+Images: ``pick_image_for_vision`` uses local ``data/images/...`` when present, else public ``https://`` URLs from DB (e.g. OSS) for Vision APIs.
 """
 
 from __future__ import annotations

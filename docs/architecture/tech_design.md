@@ -154,7 +154,7 @@ data/
 DB 查询 annotation_status = raw（或 --force 时含 annotated）的 Item
     │
     ▼
-[1] 读取 thumbnail（节省 token）
+[1] 解析图像输入（`pick_image_for_vision`：本机缩略图/原图优先，否则 OSS `https://` URL）
     │
     ▼
 [2] Vision API 调用（JSON mode）—— 实时 或 Batch File API
