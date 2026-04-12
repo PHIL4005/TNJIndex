@@ -116,30 +116,33 @@ data/
 
 将 `annotation_status = raw` 的 Item 批量处理，一次 Vision API 调用同时输出 `title`、`tags`、`description` 三个字段，写回 DB 并更新状态为 `annotated`。
 
-### Vision 模型选型（M1 定稿）
+### Vision 模型选型（S2-v2 更新，2026-04-12）
 
 **默认**：OpenAI **`gpt-4o`**（`TNJ_VISION_PROVIDER` 未设置或为 `openai`；可用 `TNJ_VISION_MODEL` 覆盖具体型号）。
 
-**备选**：阿里云 DashScope（设置 `TNJ_VISION_PROVIDER=dashscope`，密钥 `DASHSCOPE_API_KEY`）；代码默认多模态型号 **`Qwen3.5-Flash-2026-02-23`**，可用 `TNJ_VISION_MODEL` 覆盖。
+**主力（生产用）**：阿里云 DashScope（设置 `TNJ_VISION_PROVIDER=dashscope`，密钥 `DASHSCOPE_API_KEY`）；代码默认多模态型号 **`qwen3.6-plus`**（2026-04-12 升级，原为 `qwen3.5-flash`），可用 `TNJ_VISION_MODEL` 覆盖。
 
 实现与仓库内 [`pipelines/vision_client.py`](pipelines/vision_client.py) 对齐；小样本对比可运行：
 
 - `uv run python -m pipelines.vision_eval --limit 20 --provider openai`
 - `uv run python -m pipelines.vision_eval --limit 20 --provider dashscope`
 
-> 两者均支持 JSON 结构化输出；切换只改环境变量，业务逻辑不变。全库跑批前仍建议用 10～20 张图做一次人工对比与费用预估，必要时改 `TNJ_VISION_*` 后重跑。
+> 两者均支持 JSON 结构化输出；切换只改环境变量，业务逻辑不变。全库跑批前仍建议用 10 张图做一次人工对比。
 
-### 单次调用 Prompt 设计（定稿）
+### Prompt 设计（S2-v2，2026-04-12 修订）
+
+> **变更原因**：目视验收（2026-04-12）发现原 prompt 输出"梗图解说体"，description 充斥情感推断，tags 缺少构图词与搜索语境词，导致向量与图片画面语义脱节。  
+> 修订目标：**只描述可见客观内容 + 折叠搜索短句**，不做情感延伸。
 
 与代码常量 [`pipelines/prompts.py`](pipelines/prompts.py) 保持一致：
 
 ```
-你是一个《猫和老鼠》梗图标注专家，负责为语义检索系统生成索引文本。分析这张图片，用 JSON 返回以下字段：
+你是《猫和老鼠》梗图检索系统的标注专家。只描述图片中可见的客观内容，不做情感推断或叙事延伸。用 JSON 返回以下字段：
 
 {
-  "title": "snake_case 短标题，描述画面核心内容，同时适合作为文件名，仅含小写英文/数字/下划线，≤ 80 字符",
-  "tags": ["5～10 个简短标签，覆盖：角色名、情绪/表情、画面动作、常见使用场景、网络梗语境，中英文均可"],
-  "description": "专为语义检索设计的索引文本，≤ 500 字符。写法要求：用网友发帖、评论、转发时会实际输入的语言（而非旁观者叙述）。需包含：①画面的核心情绪或动作（如"假装没看见""被迫营业""一脸嫌弃"）；②这张图最适合配什么样的文字或场景（如"回复催婚亲戚""老板突然@我""看到不想看的消息"）；③1～2 个用户可能直接搜索的短语（如"猫猫嫌弃表情""汤姆假笑"）。"
+  "title": "snake_case 短标题，描述核心动作或角色状态，≤ 80 字符，仅含小写英文/数字/下划线",
+  "tags": ["8～12 个标签，每条为简短词语（非句子），覆盖：① 角色名（tom / jerry / spike / tuffy 等）② 构图/镜头（close_up / two_characters / confrontation / side_by_side 等）③ 可见动作/表情（shocked / fake_smile / arms_crossed / grabbing / running 等）④ 场景/道具（仅写图中可见的，如 phone / office / outdoor / helmet）⑤ 搜索语境词（网友搜索时会输入的词，如：被迫营业、假笑、一脸嫌弃、被抓住、崩溃、无语）"],
+  "description": "两部分：①一句客观描述（谁在做什么、有几个角色、画面构图）。②2～4 个用户会搜索的短句，用顿号分隔。总长 ≤ 500 字符。"
 }
 
 只返回 JSON，不要其他内容。
@@ -148,27 +151,28 @@ data/
 ### 处理管线
 
 ```
-DB 查询 annotation_status = raw 的 Item
+DB 查询 annotation_status = raw（或 --force 时含 annotated）的 Item
     │
     ▼
 [1] 读取 thumbnail（节省 token）
     │
     ▼
-[2] Vision API 调用（JSON mode）
+[2] Vision API 调用（JSON mode）—— 实时 或 Batch File API
     │
     ├─ 成功 → 写回 title / tags / description，status = annotated
     │
     └─ 失败 → stderr 日志记录原因，status 保持 raw，支持重试
     │
     ▼
-[3] 批量完成后，输出统计：成功 N 条 / 失败 M 条 / 预估费用
+[3] 批量完成后，输出统计：成功 N 条 / 失败 M 条
 ```
 
 **注**：调用 thumbnail 而非原图，在大多数 Vision 模型中可显著降低 image token 用量，对梗图内容识别影响极小。
 
 ### 脚本
 
-- `pipelines/annotate.py`：读取 `raw` items → 调 Vision API → 写回 DB；`--limit N`、`--dry-run`；断点续跑（已 `annotated` 不再选中）。
+- `pipelines/annotate.py`：读取 items → 调 Vision API → 写回 DB；`--limit N`、`--dry-run`、`--force`（含已 `annotated` 条目）、`--enable-batch`（Batch File API 模式）。
+- `pipelines/batch_utils.py`：DashScope Batch File API 封装（上传 JSONL、提交任务、轮询、解析写库）；费率约实时 50%，`enable_thinking=false` 已内置。
 - `pipelines/vision_eval.py`：不写库，对样本输出 JSONL 便于对比模型。
 - `pipelines/vec_smoke.py`：sqlite-vec + `item_embeddings` 最小写入与 MATCH 冒烟（M1）。
 
@@ -179,13 +183,17 @@ DB 查询 annotation_status = raw 的 Item
 - 优点：中英文理解强，JSON mode 稳定，生态文档丰富
 - 缺点：需境外网络/代理；价格以官网为准，需实测
 
-**DashScope 多模态（默认 `Qwen3.5-Flash-2026-02-23`；曾对比 `qwen-vl-max`）**
-- 优点：国内访问无障碍，中文语感好，可按百炼文档选用 Flash / VL 等型号
-- 缺点：具体型号对梗图英文 tag 质量需实测；型号以百炼控制台为准
+**DashScope 多模态（当前默认 `qwen3.6-plus`；历史对比过 `qwen3.5-flash`、`qwen-vl-max`）**
+- 优点：国内访问无障碍，中文语感好，支持 Batch File API（50% 折扣）
+- 缺点：`qwen3.6-plus` 等 Plus 系列默认开启思考模式，Batch 请求中需显式 `enable_thinking=false`
 
 **一次调用 vs 分步调用**
 - 分步（先 description → 再提取 tags）质量略高，但 token 消耗翻倍
 - **一次调用（已选）**：500 条规模下质量差异可接受，成本更低
+
+**实时调用 vs Batch File API**
+- 实时：逐条返回，便于即时验收；适合小批量测试
+- **Batch（可选）**：全量重标注时约 50% 费用，异步轮询；`--enable-batch` 参数启用
 
 </details>
 

@@ -15,7 +15,7 @@ from pipelines.prompts import VISION_ANNOTATION_PROMPT
 Provider = Literal["openai", "dashscope"]
 
 DEFAULT_MODEL_OPENAI = "gpt-4o"
-DEFAULT_MODEL_DASHSCOPE = "qwen3.5-flash"
+DEFAULT_MODEL_DASHSCOPE = "qwen3.6-plus"
 
 
 def _guess_mime(path: Path) -> str:

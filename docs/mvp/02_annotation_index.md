@@ -212,3 +212,30 @@
 - [x] S7 全量跑通
 - [x] S8 固定查询抽检与记录
 - [x] 若架构有变：更新 `docs/architecture/tech_design.md` 并同步 `00_roadmap.md`
+
+---
+
+## S2-v2 · 重标注（2026-04-12）
+
+**触发原因**：S8 目视验收（见 `pipelines/eval_memo.md`）发现原 Vision 标注存在系统性质量问题：
+- `description` 为"梗图解说体"，充斥情感推断与叙事，与用户实际搜索输入脱节
+- `tags` 缺少构图/镜头词与搜索语境词（如「被迫营业」「一脸嫌弃」）
+- 部分图（如 id=89）存在事实性误标（把对峙构图标为「手榴弹」场景）
+
+**变更内容**：
+- 重写 `pipelines/prompts.py`：新 prompt 要求只描述可见客观内容，`tags` 覆盖五类（角色/构图/动作/道具/搜索词），`description` = 客观描述句 + 搜索短句
+- 升级模型：`DEFAULT_MODEL_DASHSCOPE` → `qwen3.6-plus`
+- `pipelines/annotate.py` 新增 `--force`（重标注已 annotated 条目）、`--enable-batch`（DashScope Batch File API，约 50% 费率）
+- 新增 `pipelines/batch_utils.py`：Batch File API 封装，含 `enable_thinking=false`
+
+**重跑命令**：
+```bash
+# 实时测试 10 张
+TNJ_VISION_PROVIDER=dashscope uv run python -m pipelines.annotate --force --limit 10
+
+# 全量 Batch（50% 费率）
+TNJ_VISION_PROVIDER=dashscope uv run python -m pipelines.annotate --force --enable-batch
+
+# 全量重建向量
+uv run python -m pipelines.embed --force
+```
