@@ -43,10 +43,13 @@ def _startup() -> None:
 
 
 def _media_url(rel: str | None) -> str | None:
-    """DB paths like data/images/thumbnails/x.jpg → /media/thumbnails/x.jpg."""
+    """DB paths: OSS/http(s) URL passthrough; else data/images/... → /media/..."""
     if not rel or not str(rel).strip():
         return None
-    s = str(rel).replace("\\", "/")
+    s = str(rel).replace("\\", "/").strip()
+    lower = s.lower()
+    if lower.startswith("https://") or lower.startswith("http://"):
+        return s
     prefix = "data/images/"
     if s.startswith(prefix):
         return "/media/" + s[len(prefix) :].lstrip("/")

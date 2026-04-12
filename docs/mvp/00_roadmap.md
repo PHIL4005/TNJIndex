@@ -27,7 +27,7 @@ MVP 交付物是一个**可公开访问的网站**，满足以下用例：
 |---|------|------|---------|---------|
 | 01 | 数据基础 | ✅ 已完成 | 定义 Item Schema，跑通采集 → 入库链路 | `tech_design §1 §2` 定稿 |
 | 02 | AI 标注与索引 | ✅ 已完成（M1–M3：全量标注/embed、固定查询抽检、文档关门） | 图像 → 可检索元数据；建立搜索索引 | Phase 01 ✅ + `tech_design §3 §4` 定稿 |
-| 03 | 产品设计 | 🔄 进行中 | 锁定网站架构与交互方案，产出可直接开发的设计 | Phase 02 检索验收通过（CLI + 本地测试页）+ `tech_design §5` 定稿 |
+| 03 | 产品设计 | ✅ 已完成 | 锁定网站架构与交互方案，产出可直接开发的设计 | Phase 02 检索验收通过（CLI + 本地测试页）+ `tech_design §5` 定稿 + OSS 迁移 |
 | 04 | MVP 开发与上线 | 🔲 规划中 | 实现核心用例，部署为公开可访问的网站 | Phase 03 完成 |
 
 ---
@@ -74,7 +74,7 @@ MVP 交付物是一个**可公开访问的网站**，满足以下用例：
 ### Phase 03 · 产品设计
 
 > 详细文档：[`03_product_design.md`](03_product_design.md)  
-> 🔄 **进行中**：`tech_design §5` 已修订（Fly.io hkg + FastAPI serve 前端 + 阿里云 OSS HK）；S3/S4/S5 设计草稿已写入文档；S1 tech_design 更新 ✅；待完成：S2 图片迁移
+> ✅ **已完成**：`tech_design §5` 定稿（Fly.io hkg + FastAPI serve 前端 + 阿里云 OSS HK）；S1–S5 与 `03_product_design.md` 验收已勾选；S2 图片已迁移至 OSS HK，`pipelines/migrate_to_oss.py` 与本地测试页验证通过。
 
 **目标**：Phase 04 开始写代码前，把「做什么」和「怎么做」都锁定——避免边写边推翻框架选型。
 

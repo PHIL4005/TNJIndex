@@ -1,6 +1,6 @@
 # Phase 03 — 产品设计
 
-> 状态: **进行中** | 依赖: Phase 02 ✅；`tech_design §5` 修订见 S1  
+> 状态: **已完成** | 依赖: Phase 02 ✅；S1–S5 已定稿，`tech_design §5` 与 OSS 迁移已落地  
 > 目标: 锁定网站架构、UI/UX 交互方案与迁移计划，产出可直接进入 Phase 04 开发的设计文档。
 
 ---
@@ -48,11 +48,11 @@
 | CI/CD | Vercel 自动 + GitHub Actions | **GitHub Actions 统一** | 前后端合并后无需双平台 |
 
 **任务**：
-- [ ] 按以上修订更新 `tech_design §5` 技术栈表、架构图、部署流程
-- [ ] 在 `tech_design §5` 候选方案对比区归档旧决策
+- [x] 按以上修订更新 `tech_design §5` 技术栈表、架构图、部署流程
+- [x] 在 `tech_design §5` 候选方案对比区归档旧决策
 
 **验收**：
-- [ ] `tech_design §5` 内容与本文档 S1 结论完全一致，无遗留"待决定"
+- [x] `tech_design §5` 内容与本文档 S1 结论完全一致，无遗留"待决定"
 
 ---
 
@@ -62,18 +62,18 @@
 
 **任务**：
 
-- [ ] 阿里云 OSS：创建 Bucket（区域：`oss-cn-hongkong`），设置**公共读**权限，配置 CORS（允许后续前端域名访问）
-- [ ] 编写迁移脚本 `pipelines/migrate_to_oss.py`：
+- [x] 阿里云 OSS：创建 Bucket（区域：`oss-cn-hongkong`），设置**公共读**权限，配置 CORS（允许后续前端域名访问）
+- [x] 编写迁移脚本 `pipelines/migrate_to_oss.py`：
   - 遍历 `data/images/originals/` + `thumbnails/`，上传到 OSS
   - 路径结构保持 `originals/{filename}` / `thumbnails/{filename}`
   - 上传成功后更新 DB 对应字段为 `https://{bucket}.oss-cn-hongkong.aliyuncs.com/{path}`
   - 支持幂等（已上传且 URL 已写入 DB 的跳过）
-- [ ] 验证：随机抽取 10 条记录，`curl` 检查 URL 返回 200 且图片可渲染
+- [x] 验证：随机抽取 10 条记录，`curl` 检查 URL 返回 200 且图片可渲染
 
 **验收**：
-- [ ] DB 中所有 Item 的 `image_path` / `thumbnail_path` 均为 OSS 公开 URL，无本地路径残留
-- [ ] 随机 10 张缩略图 URL，大陆网络环境下可正常访问（≤ 3s）
-- [ ] OSS Bucket 已配置 CORS，允许前端域名跨域读取图片
+- [x] DB 中所有 Item 的 `image_path` / `thumbnail_path` 均为 OSS 公开 URL，无本地路径残留
+- [x] 随机 10 张缩略图 URL，大陆网络环境下可正常访问（≤ 3s）
+- [x] OSS Bucket 已配置 CORS，允许前端域名跨域读取图片
 
 ---
 
@@ -329,9 +329,10 @@ jobs:
 | 变量 | 说明 |
 |------|------|
 | `DATABASE_PATH` | `/data/tnjindex.db`（persistent volume 挂载路径） |
-| `OSS_ENDPOINT` | `https://oss-cn-hongkong.aliyuncs.com` |
-| `OSS_BUCKET` | Bucket 名 |
-| `OSS_ACCESS_KEY_ID` / `OSS_ACCESS_KEY_SECRET` | 阿里云 RAM 子账号 AccessKey（只读 OSS 权限即可） |
+| `ALIYUN_OSS_ENDPOINT` | `https://oss-cn-hongkong.aliyuncs.com` |
+| `ALIYUN_OSS_BUCKET_NAME` | Bucket 名 |
+| `ALIYUN_OSS_ACCESS_KEY_ID` / `ALIYUN_OSS_ACCESS_KEY_SECRET` | 阿里云 RAM 子账号 AccessKey（只读 OSS 权限即可） |
+| `ALIYUN_OSS_REGION` | 可选；默认 `oss-cn-hongkong`（与公开 URL 域名一致） |
 | `TNJ_VISION_PROVIDER` / `TNJ_VISION_MODEL` | Phase 02 复用 |
 | `TNJ_EMBED_PROVIDER` / `TNJ_EMBED_MODEL` | Phase 02 复用 |
 
@@ -339,19 +340,19 @@ jobs:
 
 ## 验收标准
 
-- [ ] S1：`tech_design §5` 已按修订内容更新，架构图/技术栈表/部署流程与本文档 S1 结论一致
-- [ ] S2：全库 `image_path` / `thumbnail_path` 均为 OSS HK 公开 URL；随机 10 张大陆可访问
-- [ ] S3：UC-01 / UC-02 设计草稿完整（见本文档），可直接指导 Phase 04 编码；UC-03 / UC-04 草稿已记录
-- [ ] S4：组件库选型有据可查；项目目录结构已规划
-- [ ] S5：Fly.io 配置要点与 CI/CD workflow 草稿已写入本文档
+- [x] S1：`tech_design §5` 已按修订内容更新，架构图/技术栈表/部署流程与本文档 S1 结论一致
+- [x] S2：全库 `image_path` / `thumbnail_path` 均为 OSS HK 公开 URL；随机 10 张大陆可访问
+- [x] S3：UC-01 / UC-02 设计草稿完整（见本文档），可直接指导 Phase 04 编码；UC-03 / UC-04 草稿已记录
+- [x] S4：组件库选型有据可查；项目目录结构已规划
+- [x] S5：Fly.io 配置要点与 CI/CD workflow 草稿已写入本文档
 
 ---
 
 ## 任务清单
 
-- [ ] S1 修订 `docs/architecture/tech_design.md §5`
-- [ ] S2 创建阿里云 OSS Bucket + 编写 `pipelines/migrate_to_oss.py` + 验证 URL
-- [ ] S3 UX 草稿已在本文档 ✅（可直接进入 Phase 04）
-- [ ] S4 前端项目结构规划已在本文档 ✅（Phase 04 按此初始化）
-- [ ] S5 部署与 CI/CD 规划已在本文档 ✅（Phase 04 按此配置）
-- [ ] 更新 `docs/mvp/00_roadmap.md` Phase 03 状态为「进行中」
+- [x] S1 修订 `docs/architecture/tech_design.md §5`
+- [x] S2 创建阿里云 OSS Bucket + 编写 `pipelines/migrate_to_oss.py` + 验证 URL
+- [x] S3 UX 草稿已在本文档 ✅（可直接进入 Phase 04）
+- [x] S4 前端项目结构规划已在本文档 ✅（Phase 04 按此初始化）
+- [x] S5 部署与 CI/CD 规划已在本文档 ✅（Phase 04 按此配置）
+- [x] 更新 `docs/mvp/00_roadmap.md` Phase 03 状态为「已完成」

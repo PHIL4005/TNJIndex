@@ -90,7 +90,7 @@ data/
     └── tnjindex.db    # SQLite（Phase 01～02 本地开发用）
 ```
 
-> Phase 03 前迁移：`originals/` + `thumbnails/` 上传对象存储（R2/OSS），`image_path` / `thumbnail_path` 更新为公开 URL；DB 按 §4/§5 选型迁移或保留。
+> Phase 03 已完成迁移：`originals/` + `thumbnails/` 已上传阿里云 OSS 香港；`image_path` / `thumbnail_path` 为公开 URL（脚本见 `pipelines/migrate_to_oss.py`）。本地 `data/images/` 可保留作备份；DB 仍用 SQLite，与 §4 一致。
 
 ### 采集脚本职责（Phase 01 实现）
 
@@ -308,7 +308,7 @@ WHERE EXISTS (
 |----|------|------|
 | 后端 API | FastAPI（Python） | 复用 Phase 01～02 代码；所有端点统一加 `/api` 前缀 |
 | 前端 | React（Vite）| `build.outDir` 指向 `backend/static/`；由 FastAPI `StaticFiles` serve |
-| 图片存储 | 阿里云 OSS 香港节点 | Phase 03 前从本地迁入；`image_path` / `thumbnail_path` 更新为 OSS 公开 URL |
+| 图片存储 | 阿里云 OSS 香港节点 | Phase 03 已从本地迁入；`image_path` / `thumbnail_path` 为 OSS 公开 URL |
 | 部署 | Fly.io `hkg` region | 含 persistent volume（挂载 SQLite 文件）；香港节点大陆延迟约 30-50ms |
 | CI/CD | GitHub Actions → Fly.io | 前端 build + `flyctl deploy --remote-only`；统一单流水线 |
 
