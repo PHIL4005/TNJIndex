@@ -61,17 +61,17 @@ def main(argv: list[str] | None = None) -> int:
     ).fetchall()
     conn.close()
 
-    from pipelines.paths import pick_image_path
+    from pipelines.paths import pick_image_for_vision
 
     for row in rows:
         item_id = int(row["id"])
-        path = pick_image_path(row["thumbnail_path"], row["image_path"])
-        rec = {"item_id": item_id, "path": str(path) if path else None, "error": None, "data": None}
-        if path is None or not path.is_file():
+        ref = pick_image_for_vision(row["thumbnail_path"], row["image_path"])
+        rec = {"item_id": item_id, "path": str(ref) if ref is not None else None, "error": None, "data": None}
+        if ref is None:
             rec["error"] = "missing_image"
         else:
             try:
-                rec["data"] = annotate_image(path, provider=prov)
+                rec["data"] = annotate_image(ref, provider=prov)
             except Exception as e:  # noqa: BLE001
                 rec["error"] = repr(e)
         print(json.dumps(rec, ensure_ascii=False), flush=True)

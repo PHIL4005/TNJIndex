@@ -17,7 +17,7 @@ import sys
 import time
 
 from pipelines.constants import REPO_ROOT
-from pipelines.paths import pick_image_path
+from pipelines.paths import pick_image_for_vision
 from pipelines.sqlite_vec import ensure_item_embeddings
 from pipelines.vision_client import Provider, annotate_image
 from scrapers.db import get_conn, update_annotation
@@ -116,18 +116,18 @@ def main(argv: list[str] | None = None) -> int:
     ok = fail = 0
     for idx, row in enumerate(rows, start=1):
         item_id = int(row["id"])
-        img_path = pick_image_path(row["thumbnail_path"], row["image_path"])
-        if img_path is None or not img_path.is_file():
+        img_ref = pick_image_for_vision(row["thumbnail_path"], row["image_path"])
+        if img_ref is None:
             print(f"[annotate] {idx}/{total} id={item_id} SKIP missing_image", flush=True)
             fail += 1
             continue
 
         if args.dry_run:
-            print(f"[annotate] {idx}/{total} id={item_id} DRY-RUN would_call {img_path}", flush=True)
+            print(f"[annotate] {idx}/{total} id={item_id} DRY-RUN would_call {img_ref!r}", flush=True)
             continue
 
         try:
-            data = annotate_image(img_path, provider=provider)
+            data = annotate_image(img_ref, provider=provider)
             update_annotation(conn, item_id, data["title"], data["tags"], data["description"])
             print(
                 f"[annotate] {idx}/{total} id={item_id} OK title={data['title']!r}",

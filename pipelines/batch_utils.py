@@ -2,7 +2,7 @@
 DashScope Batch File API helpers for Vision annotation.
 
 Flow:
-  1. Build JSONL (one request per item, base64 image + prompt)
+  1. Build JSONL (one request per item; local file → base64 data URL, http(s) → URL passthrough)
   2. Upload JSONL to DashScope Files API (purpose="batch")
   3. Create Batch job (endpoint="/v1/chat/completions", completion_window="24h")
   4. Poll until completed / failed / expired
@@ -18,14 +18,14 @@ import io
 import json
 import os
 import sqlite3
-import tempfile
 import time
+from pathlib import Path
 from typing import Any
 
 from pipelines.annotation_validate import parse_vision_json, validate_annotation
-from pipelines.paths import pick_image_path
+from pipelines.paths import pick_image_for_vision
 from pipelines.prompts import VISION_ANNOTATION_PROMPT
-from pipelines.vision_client import _read_image_data_url  # reuse base64 encoder
+from pipelines.vision_client import _read_image_data_url
 from scrapers.db import update_annotation
 
 DASHSCOPE_BASE_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1"
@@ -43,20 +43,23 @@ def _get_model() -> str:
 
 
 def _build_jsonl(rows: list[sqlite3.Row]) -> str:
-    """Build JSONL string: one request per row, image as base64 data-URL."""
+    """Build JSONL string: one request per row; local file → data URL, http(s) → passthrough URL."""
     model = _get_model()
     lines: list[str] = []
     skipped = 0
 
     for row in rows:
         item_id = int(row["id"])
-        img_path = pick_image_path(row["thumbnail_path"], row["image_path"])
-        if img_path is None or not img_path.is_file():
+        img_ref = pick_image_for_vision(row["thumbnail_path"], row["image_path"])
+        if img_ref is None:
             print(f"[batch] id={item_id} SKIP missing_image", flush=True)
             skipped += 1
             continue
 
-        data_url = _read_image_data_url(img_path)
+        if isinstance(img_ref, Path):
+            image_url = _read_image_data_url(img_ref)
+        else:
+            image_url = img_ref
         body: dict[str, Any] = {
             "model": model,
             "response_format": {"type": "json_object"},
@@ -65,7 +68,7 @@ def _build_jsonl(rows: list[sqlite3.Row]) -> str:
                 {
                     "role": "user",
                     "content": [
-                        {"type": "image_url", "image_url": {"url": data_url}},
+                        {"type": "image_url", "image_url": {"url": image_url}},
                         {"type": "text", "text": VISION_ANNOTATION_PROMPT},
                     ],
                 }

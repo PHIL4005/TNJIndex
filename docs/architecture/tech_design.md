@@ -171,7 +171,7 @@ DB 查询 annotation_status = raw（或 --force 时含 annotated）的 Item
 
 ### 脚本
 
-- `pipelines/annotate.py`：读取 items → 调 Vision API → 写回 DB；`--limit N`、`--dry-run`、`--force`（含已 `annotated` 条目）、`--enable-batch`（Batch File API 模式）。
+- `pipelines/annotate.py`：读取 items → 调 Vision API → 写回 DB；`--limit N`、`--dry-run`、`--force`（含已 `annotated` 条目）、`--enable-batch`（Batch File API 模式）。`pipelines.paths.pick_image_for_vision`：优先本机 `data/images/...`，否则直接使用 DB 中的公网 `https://` 缩略图/原图 URL（由模型侧拉取，不落盘）。
 - `pipelines/batch_utils.py`：DashScope Batch File API 封装（上传 JSONL、提交任务、轮询、解析写库）；费率约实时 50%，`enable_thinking=false` 已内置。
 - `pipelines/vision_eval.py`：不写库，对样本输出 JSONL 便于对比模型。
 - `pipelines/vec_smoke.py`：sqlite-vec + `item_embeddings` 最小写入与 MATCH 冒烟（M1）。

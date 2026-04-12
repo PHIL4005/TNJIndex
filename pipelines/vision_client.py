@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any, Literal
 
 from pipelines.annotation_validate import parse_vision_json, validate_annotation
+from pipelines.paths import is_http_url
 from pipelines.prompts import VISION_ANNOTATION_PROMPT
 
 Provider = Literal["openai", "dashscope"]
@@ -28,6 +29,13 @@ def _read_image_data_url(path: Path) -> str:
     b64 = base64.standard_b64encode(raw).decode("ascii")
     mime = _guess_mime(path)
     return f"data:{mime};base64,{b64}"
+
+
+def _openai_image_url(image_ref: Path | str) -> str:
+    """Return URL for OpenAI ``image_url`` (data URL for local file, passthrough for http)."""
+    if isinstance(image_ref, Path):
+        return _read_image_data_url(image_ref)
+    return image_ref
 
 
 def _provider_from_env() -> Provider:
@@ -60,12 +68,12 @@ def _require_dashscope_key() -> None:
         )
 
 
-def _call_openai(image_path: Path, *, model: str, max_retries: int = 3) -> str:
+def _call_openai(image_ref: Path | str, *, model: str, max_retries: int = 3) -> str:
     _require_openai_key()
     from openai import OpenAI
 
     client = OpenAI()
-    data_url = _read_image_data_url(image_path)
+    img_url = _openai_image_url(image_ref)
     for attempt in range(max_retries):
         try:
             resp = client.chat.completions.create(
@@ -76,7 +84,7 @@ def _call_openai(image_path: Path, *, model: str, max_retries: int = 3) -> str:
                         "role": "user",
                         "content": [
                             {"type": "text", "text": VISION_ANNOTATION_PROMPT},
-                            {"type": "image_url", "image_url": {"url": data_url}},
+                            {"type": "image_url", "image_url": {"url": img_url}},
                         ],
                     }
                 ],
@@ -94,20 +102,26 @@ def _call_openai(image_path: Path, *, model: str, max_retries: int = 3) -> str:
     raise RuntimeError("openai_call_failed")
 
 
-def _call_dashscope(image_path: Path, *, model: str, max_retries: int = 3) -> str:
+def _call_dashscope(image_ref: Path | str, *, model: str, max_retries: int = 3) -> str:
     _require_dashscope_key()
     from http import HTTPStatus
 
     from dashscope import MultiModalConversation
 
-    abs_path = image_path.resolve()
+    if isinstance(image_ref, Path):
+        image_spec: str = f"file://{image_ref.resolve()}"
+    elif is_http_url(image_ref):
+        image_spec = image_ref
+    else:
+        raise RuntimeError(f"dashscope: unsupported image_ref type: {type(image_ref)!r}")
+
     for attempt in range(max_retries):
         try:
             messages = [
                 {
                     "role": "user",
                     "content": [
-                        {"image": f"file://{abs_path}"},
+                        {"image": image_spec},
                         {"text": VISION_ANNOTATION_PROMPT},
                     ],
                 }
@@ -136,21 +150,25 @@ def _call_dashscope(image_path: Path, *, model: str, max_retries: int = 3) -> st
 
 
 def annotate_image(
-    image_path: Path,
+    image_ref: Path | str,
     *,
     provider: Provider | None = None,
     model: str | None = None,
 ) -> dict[str, Any]:
     """
     Call Vision API and return a validated dict with title, tags, description.
+
+    ``image_ref`` may be a local ``Path`` (file must exist) or an ``http(s)`` URL
+    (e.g. public OSS thumbnail/original).
+
     Raises RuntimeError on API/parse/validation failure.
     """
     pv = provider or _provider_from_env()
     md = model or _model_for(pv)
     if pv == "openai":
-        raw = _call_openai(image_path, model=md)
+        raw = _call_openai(image_ref, model=md)
     else:
-        raw = _call_dashscope(image_path, model=md)
+        raw = _call_dashscope(image_ref, model=md)
 
     data, err = parse_vision_json(raw)
     if err or data is None:
