@@ -7,10 +7,16 @@ Usage:
 """
 
 import json
+import os
 from pathlib import Path
 from typing import Optional
 
-DB_PATH = Path(__file__).parent.parent / "data" / "db" / "tnjindex.db"
+def get_db_path() -> Path:
+    """Resolve SQLite path: ``DATABASE_PATH`` if set, else default under ``data/db/``."""
+    raw = os.environ.get("DATABASE_PATH")
+    if raw and str(raw).strip():
+        return Path(str(raw).strip()).expanduser()
+    return Path(__file__).parent.parent / "data" / "db" / "tnjindex.db"
 
 
 def _sqlite3_module():
@@ -55,8 +61,9 @@ CREATE TABLE IF NOT EXISTS items (
 
 
 def get_conn() -> sqlite3.Connection:
-    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(DB_PATH)
+    db_path = get_db_path()
+    db_path.parent.mkdir(parents=True, exist_ok=True)
+    conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA journal_mode=WAL;")
     conn.execute("PRAGMA foreign_keys=ON;")
@@ -66,7 +73,7 @@ def get_conn() -> sqlite3.Connection:
 def init_db() -> None:
     with get_conn() as conn:
         conn.executescript(CREATE_ITEMS_TABLE)
-    print(f"[OK] DB initialized: {DB_PATH}")
+    print(f"[OK] DB initialized: {get_db_path()}")
 
 
 # ---------- CRUD helpers ----------

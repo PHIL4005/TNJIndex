@@ -8,6 +8,15 @@ Binds 127.0.0.1:8000 by default.
 
 from __future__ import annotations
 
+import warnings
+
+warnings.warn(
+    "pipelines.app 已弃用：请使用 `uvicorn backend.main:app` 启动正式 API（S1-b）；"
+    "本模块预计在后续里程碑移除。",
+    DeprecationWarning,
+    stacklevel=1,
+)
+
 import os
 from pathlib import Path
 
