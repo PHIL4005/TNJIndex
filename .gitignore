@@ -26,3 +26,12 @@ __pycache__/
 
 # uv
 .python-version
+
+# Node（含 frontend/）
+node_modules/
+
+# Vite 缓存
+frontend/.vite/
+
+# 前端生产构建输出（frontend/vite.config.ts → ../backend/static）
+backend/static/
