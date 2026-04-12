@@ -1,0 +1,17 @@
+# 依赖与锁文件缓存
+node_modules/
+
+# 构建与工具缓存
+dist/
+.vite/
+coverage/
+*.tsbuildinfo
+
+# 环境变量
+.env
+.env.*
+!.env.example
+
+# 日志与本地
+*.log
+.DS_Store

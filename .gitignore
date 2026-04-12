@@ -27,11 +27,17 @@ __pycache__/
 # uv
 .python-version
 
-# Node（含 frontend/）
+# Node（任意子目录；显式写出 frontend 以免子项目误 init 时漏配）
 node_modules/
+frontend/node_modules/
 
 # Vite 缓存
 frontend/.vite/
+frontend/dist/
+
+# 爬虫本地 cookie（勿提交）
+scrapers/tieba_cookie.txt
+scrapers/*_cookie.txt
 
 # 前端生产构建输出（frontend/vite.config.ts → ../backend/static）
 backend/static/
