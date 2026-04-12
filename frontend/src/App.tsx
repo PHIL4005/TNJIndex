@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react"
 import { ExternalLinkIcon } from "lucide-react"
 import { toast } from "sonner"
 
+import { DetailModal } from "@/components/DetailModal"
 import { MasonryGrid } from "@/components/MasonryGrid"
 import { SearchBar } from "@/components/SearchBar"
 import { Badge } from "@/components/ui/badge"
@@ -36,6 +37,8 @@ export default function App() {
 
   const [searchInput, setSearchInput] = useState("")
   const [topTags, setTopTags] = useState<TagCount[]>([])
+  const [detailOpen, setDetailOpen] = useState(false)
+  const [selectedId, setSelectedId] = useState<number | null>(null)
 
   useEffect(() => {
     void fetchTags()
@@ -72,6 +75,16 @@ export default function App() {
     [search],
   )
 
+  const onSelectItem = useCallback((id: number) => {
+    setSelectedId(id)
+    setDetailOpen(true)
+  }, [])
+
+  const onDetailOpenChange = useCallback((open: boolean) => {
+    setDetailOpen(open)
+    if (!open) setSelectedId(null)
+  }, [])
+
   const heading = useMemo(
     () => resultsHeading(query, activeTags, total),
     [query, activeTags, total],
@@ -82,6 +95,7 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-background text-foreground">
+      <DetailModal open={detailOpen} onOpenChange={onDetailOpenChange} itemId={selectedId} />
       <header className="sticky top-0 z-40 flex h-12 items-center border-b border-border bg-surface px-4">
         <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-4">
           <span className="text-sm font-semibold tracking-tight">TNJIndex</span>
@@ -165,7 +179,12 @@ export default function App() {
             </div>
           ) : (
             <>
-              <MasonryGrid items={items} loading={loading} loadingMore={loadingMore} />
+              <MasonryGrid
+                items={items}
+                loading={loading}
+                loadingMore={loadingMore}
+                onSelectItem={onSelectItem}
+              />
               <div ref={sentinelRef} className="h-8 w-full" aria-hidden />
             </>
           )}

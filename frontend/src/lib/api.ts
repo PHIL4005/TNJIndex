@@ -102,6 +102,6 @@ export function fetchTags(): Promise<TagCount[]> {
   return apiJson<TagCount[]>("/api/tags")
 }
 
-export function fetchItem(id: number): Promise<ItemDetail> {
-  return apiJson<ItemDetail>(`/api/items/${id}`)
+export function fetchItem(id: number, init?: RequestInit): Promise<ItemDetail> {
+  return apiJson<ItemDetail>(`/api/items/${id}`, init)
 }

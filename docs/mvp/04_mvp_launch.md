@@ -1,7 +1,7 @@
 # Phase 04 — MVP 开发与上线
 
 > 状态: **进行中** | 依赖: Phase 03 ✅（含 OSS 图片迁移）  
-> 进度: **S1–S2 ✅**（后端 API + 本地 UC-01 搜索页已验收）；**S3** UC-02 Modal、**S4** 部署与 CI/CD 待办。  
+> 进度: **S1–S3 ✅**（后端 API + UC-01 搜索 + **UC-02 Modal 本地联调**，2026-04-12）；**S4** 部署与 CI/CD 待办。  
 > 目标: 按 Phase 03 设计完成 UC-01/02 并部署上线；UC-03/04（P1）完成后追加。
 
 ---
@@ -13,7 +13,7 @@
 | Backend API（3 端点） | P0 | `/api/search`、`/api/items/{id}`、`/api/tags` |
 | 搜索质量优化 | P0 | S1 诊断 + Phase 02 S2-v2 标注/向量侧已改善；可选 FTS5 等见 S1 checklist |
 | 前端 UC-01 自然语言搜索 | P0 | 搜索框 + Masonry + 无限滚动 + 全状态覆盖（**本地已交付**，2026-04-12） |
-| 前端 UC-02 素材详情 Modal | P0 | 大图 + 标签 + 描述 + 多种关闭方式 |
+| 前端 UC-02 素材详情 Modal | P0 | 大图 + 标签 + 描述 + 多种关闭方式（**本地已交付**，2026-04-12） |
 | Dockerfile + Fly.io 部署 | P0 | 香港节点，含 persistent volume（SQLite）|
 | GitHub Actions CI/CD | P0 | push main 自动 build + deploy |
 | UC-03 标签筛选 | P1 | Phase 04 上线后追加 |
@@ -43,8 +43,9 @@ TNJIndex/
 │   │   ├── components/
 │   │   │   ├── SearchBar.tsx       # 搜索框 + 热门标签快捷入口
 │   │   │   ├── MasonryGrid.tsx     # 瀑布流容器 + 无限滚动
-│   │   │   ├── ImageCard.tsx       # 单卡片（hover 态 + 橙色边框）
-│   │   │   └── DetailModal.tsx     # UC-02 大图 Modal
+│   │   │   ├── ImageCard.tsx       # 单卡片（hover 态 + 橙色边框；可点击打开详情）
+│   │   │   ├── DetailModal.tsx     # UC-02 大图 Modal（懒加载 /api/items/{id}）
+│   │   │   └── ui/                 # 基座组件（含 `dialog.tsx` Radix Modal）
 │   │   ├── hooks/
 │   │   │   ├── useSearch.ts        # /api/search 调用与状态管理
 │   │   │   └── useInfiniteScroll.ts
@@ -161,19 +162,19 @@ TNJIndex/
 
 **目标**：完成 DetailModal，与后端联调，确认完整用户流程可用、移动端适配正常。
 
-- [ ] `DetailModal.tsx`：
+- [x] `DetailModal.tsx` + `ui/dialog.tsx`：
   - 布局：PC 左图右文（左侧最大 58%）/ 移动端上图下文（图高 ≤ 60vh）
   - 大图 `object-contain`，黑色背景
-  - title（等宽小字辅色）、tags（Badge 组件）、description（辅色小字）
+  - title（等宽小字辅色）、tags（Badge 组件，**纯展示**；UC-03 标签筛选 Popover 不在本步）、description（辅色小字）
   - 关闭：右上角 ×、ESC 键、点击遮罩（`#000000cc` + `backdrop-blur-sm`）
-- [ ] 点击卡片时懒加载 `/api/items/{id}` 详情（不在 Masonry 预取）
-- [ ] 端到端联调：UC-01 搜索 → 点击卡片 → UC-02 Modal 完整流程
-- [ ] 移动端浏览器验证（iOS Safari / Chrome）
+- [x] 点击卡片时懒加载 `/api/items/{id}` 详情（不在 Masonry 预取）；`fetchItem` 支持 `AbortSignal`，避免快速切换竞态
+- [x] 端到端联调：UC-01 搜索 / 热门标签 → 点击卡片 → UC-02 Modal；`npm run build` 通过
+- [x] 移动端布局：开发者侧已通过浏览器响应式模式验证（上图下文、图高限制）；**真机 iOS Safari / Chrome 抽验**建议在方便时由维护者补做
 
 **验收**：
-- [ ] 点击任意卡片 → Modal 弹出，大图/标签/描述与 DB 数据一致
-- [ ] ×、ESC、遮罩三种关闭方式均正常
-- [ ] 移动端上下布局正确，图片不溢出
+- [x] 点击任意卡片 → Modal 弹出，大图/标签/描述与 `/api/items/{id}` 一致
+- [x] ×、ESC、遮罩三种关闭方式均正常
+- [x] 移动端上下布局正确，图片不溢出（本地 DevTools 断点）
 
 ---
 
@@ -255,7 +256,7 @@ jobs:
 
 - [ ] 公开可访问的 HTTPS URL（Fly.io hkg 节点）
 - [x] UC-01：自然语言搜索返回相关梗图，Masonry 布局正常，无限滚动可用（本地联调已验收，2026-04-12）
-- [ ] UC-02：点击图片弹出 Modal，展示大图/标签/描述
+- [x] UC-02：点击图片弹出 Modal，展示大图/标签/描述（本地联调已验收，2026-04-12；公网 S4 后再检）
 - [x] 搜索质量：固定查询集 Top-5 主观满意（S2-v2 / `eval_memo.md` + 本地 UC-01 联调；公网环境 S4 后再检）
 - [ ] push main 自动触发 CI/CD，部署成功
 - [ ] 大陆网络环境下体验可接受
@@ -266,6 +267,6 @@ jobs:
 
 - [x] S1 后端 API 搭建 + 搜索质量优化（核心三端点 + DB 依赖 + 语义 distance 阈值；`backend/static` 条件挂载 + CORS 已落地）
 - [x] S2 前端搭建 + UC-01 搜索页（2026-04-12 验收）
-- [ ] S3 UC-02 详情 Modal + 端到端联调
+- [x] S3 UC-02 详情 Modal + 端到端联调（2026-04-12）
 - [ ] S4 Dockerfile + Fly.io + CI/CD
-- [x] 同步 `docs/mvp/00_roadmap.md` Phase 04 进度（S2 完成说明）
+- [x] 同步 `docs/mvp/00_roadmap.md` Phase 04 进度（S2 / S3 完成说明）

@@ -16,13 +16,20 @@ type MasonryGridProps = {
   loading: boolean
   loadingMore: boolean
   className?: string
+  onSelectItem?: (id: number) => void
 }
 
-export function MasonryGrid({ items, loading, loadingMore, className }: MasonryGridProps) {
+export function MasonryGrid({
+  items,
+  loading,
+  loadingMore,
+  className,
+  onSelectItem,
+}: MasonryGridProps) {
   const initialSkeleton = loading && items.length === 0
   const itemNodes = initialSkeleton
     ? Array.from({ length: 12 }, (_, i) => <ImageCard key={`sk-${i}`} />)
-    : items.map((item) => <ImageCard key={item.id} item={item} />)
+    : items.map((item) => <ImageCard key={item.id} item={item} onSelect={onSelectItem} />)
 
   const tailSkeleton =
     loadingMore && !initialSkeleton

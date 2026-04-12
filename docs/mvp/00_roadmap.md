@@ -28,7 +28,7 @@ MVP 交付物是一个**可公开访问的网站**，满足以下用例：
 | 01 | 数据基础 | ✅ 已完成 | 定义 Item Schema，跑通采集 → 入库链路 | `tech_design §1 §2` 定稿 |
 | 02 | AI 标注与索引 | ✅ 已完成（M1–M3：全量标注/embed、固定查询抽检、文档关门） | 图像 → 可检索元数据；建立搜索索引 | Phase 01 ✅ + `tech_design §3 §4` 定稿 |
 | 03 | 产品设计 | ✅ 已完成 | 锁定网站架构与交互方案，产出可直接开发的设计 | Phase 02 检索验收通过（CLI + 本地测试页）+ `tech_design §5` 定稿 + OSS 迁移 |
-| 04 | MVP 开发与上线 | 🚧 进行中（S1–S2 ✅） | 实现核心用例，部署为公开可访问的网站 | Phase 03 完成 |
+| 04 | MVP 开发与上线 | 🚧 进行中（S1–S3 ✅ 本地） | 实现核心用例，部署为公开可访问的网站 | Phase 03 完成 |
 
 ---
 
@@ -102,7 +102,7 @@ MVP 交付物是一个**可公开访问的网站**，满足以下用例：
 ### Phase 04 · MVP 开发与上线
 
 > 详细文档：[`04_mvp_launch.md`](04_mvp_launch.md)  
-> 🚧 **进行中**（2026-04-12）：S1 `backend/` API、CORS、`backend/static` 条件挂载与语义检索阈值已落地；**S2** 前端 UC-01（Vite + shadcn + Masonry + 无限滚动 + `/api/tags` 热门标签）**本地验收通过**；SQLite 连接使用 `scrapers/db.py` 中 `check_same_thread=False` 以兼容 FastAPI 线程池。下一步 **S3** UC-02 Modal、**S4** Fly.io + Actions。  
+> 🚧 **进行中**（2026-04-12）：S1 `backend/` API、CORS、`backend/static` 条件挂载与语义检索阈值已落地；**S2** 前端 UC-01（Vite + shadcn + Masonry + 无限滚动 + `/api/tags` 热门标签）**本地验收通过**；**S3** UC-02 详情 Modal（Radix Dialog、`/api/items/{id}` 懒加载、三种关闭方式）**本地验收通过**。SQLite 连接使用 `scrapers/db.py` 中 `check_same_thread=False` 以兼容 FastAPI 线程池。下一步 **S4** Fly.io + Actions。  
 > ⚠️ 技术前置：Phase 03 完成
 
 **目标**：按 Phase 03 的设计，把 UC-01～UC-02（P0）开发完成并部署上线；UC-03／UC-04（P1）量力而行。
