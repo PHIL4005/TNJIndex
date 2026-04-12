@@ -1,6 +1,14 @@
+### Phase 02 本地检索测试页（默认 127.0.0.1，勿暴露公网）
+
+```
+uv run python -m pipelines.app
+```
+
+浏览器打开 `http://127.0.0.1:8000`；固定查询集见 `pipelines/eval_queries.txt`。
+
 ### scraping for Tieba:
 ```
-v run python scrapers/tieba_fetch.py --kw novelai --out data/staging/tieba/run1 --max-threads 100 --sort create --skip-pages 4
+uv run python scrapers/tieba_fetch.py --kw novelai --out data/staging/tieba/run1 --max-threads 100 --sort create --skip-pages 4
 ```
 
 ### blur imgs

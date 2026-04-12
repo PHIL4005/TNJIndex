@@ -220,16 +220,18 @@ DB 查询 annotation_status = raw 的 Item
 - 500 条规模下 ANN 延迟 < 10ms，无需额外服务
 - Phase 03 上线后，视实际并发与规模决定是否迁移至托管向量服务（Pinecone / Weaviate Cloud 等）；迁移不影响 §1 数据模型
 
-### Embedding 模型
+### Embedding 模型（M3 定稿）
 
-与 Vision 模型同策略——**待实测确定**，候选：
+本仓库 Phase 02 **默认选型**（与 `pipelines/constants.py` 中 `EMBEDDING_DIM=1536` 及 `pipelines/embed_client.py` 一致；可用 `TNJ_EMBED_*` 覆盖）：
 
-| 模型 | 维度 | 特点 |
-|------|------|------|
-| `text-embedding-3-small`（OpenAI） | 1536 | 英文质量高，价格极低（约 $0.02/1M tokens） |
-| `text-embedding-v3`（阿里 DashScope） | 1024 | 中文友好，国内访问无障碍 |
+| 场景 | 模型 | 维度 | 说明 |
+|------|------|------|------|
+| **默认（OpenAI）** | `text-embedding-3-small` | 1536 | 与 Vision 同厂商时 Key 管理简单；M3 全量 embed 已按此维度写入 `item_embeddings` |
+| **备选（DashScope）** | `text-embedding-v4`（代码默认） | 1536 | 与表宽对齐；国内网络友好 |
 
-> 因为 `description` 和 `tags` 以中英文混合为主，两者效果差异不大；建议与 §3 Vision 模型保同一厂商，减少 API Key 管理成本。
+历史候选（未作为本仓库默认表宽）：`text-embedding-v3`（DashScope，最高 1024 维）等——若改用非 1536 维模型，须同步改 `EMBEDDING_DIM` 并 **`embed.py --force` 重建** `item_embeddings`。
+
+> 因为 `description` 和 `tags` 以中英文混合为主，OpenAI 与 DashScope 在 500 条量级下可择一为主；建议与 §3 Vision 模型尽量同厂商，减少 API Key 管理成本。
 
 **被 embed 的内容**：将 `description` + `tags`（join 为空格分隔字符串）拼接后 embed，作为每条 Item 的语义向量。
 
@@ -248,6 +250,8 @@ results = db.execute("""
 ```
 
 Phase 02 交付标准：以**同一检索逻辑**提供 **CLI** 与 **本地极简测试页**；输入自由文本返回 Top-K（如 10）；测试页须**展示对应缩略图/原图**以便主观与数据对照；固定查询集（10～20 条）人工抽检 Top-5 相关性通过（细则见 `docs/mvp/02_annotation_index.md`）。
+
+**实现注记**：`pipelines/search.py` 使用 sqlite-vec `vec0` 的 `WHERE embedding MATCH ? AND k = ?` 做 KNN，再按命中顺序回查 `items`；与上文「`JOIN` + `vec_distance_cosine`」伪代码等价目标（Top-K 语义近邻）、具体 SQL 以代码为准；`vec0` 距离度量以建表时配置为准（未显式指定时为扩展默认）。
 
 ### 结构化标签过滤（Phase 03）
 
@@ -277,51 +281,55 @@ WHERE EXISTS (
 
 ### 整体架构
 
-**前后端分离**：Python FastAPI 后端 + 静态前端，各自独立部署。
+**FastAPI 一体化部署**：后端同时提供 API 与前端静态资源，统一部署于 Fly.io 香港节点；图片存储于阿里云 OSS 香港节点。
 
 ```
-用户浏览器
+用户浏览器（主要：中国大陆）
     │
-    ├─ 静态资源（HTML/JS/CSS）← Vercel（免费）
-    │
-    └─ API 请求 → FastAPI（Fly.io 免费额度）
+    └─ 所有请求 → FastAPI（Fly.io hkg 节点，延迟约 30-50ms）
                         │
-                        ├─ SQLite + sqlite-vec（持久化磁盘）
+                        ├─ /api/* → 业务 API 端点
+                        │       └─ SQLite + sqlite-vec（persistent volume）
                         │
-                        └─ 图片 URL 指向 Cloudflare R2（免费额度 10 GB）
+                        ├─ /*    → React 静态产物（StaticFiles mount）
+                        │
+                        └─ 图片 URL 指向阿里云 OSS 香港节点
 ```
 
 选型理由：
 - Phase 01～02 已是 Python；FastAPI 直接复用 sqlite-vec 查询逻辑，无需跨语言桥接
 - 前端无 SEO 强需求（工具站），纯静态够用，无需 SSR
-- **总云成本趋近于零**：Fly.io 免费 3 VM / Vercel 免费 / R2 免费 10 GB
+- **前后端合并部署**：消除 Vercel（大陆访问不稳定）；所有流量走单一香港节点，体验一致
+- **图片存储换 OSS HK**：阿里云 OSS 香港节点大陆直连延迟低；R2 无 CDN 大陆直连慢
 
 ### 技术栈
 
 | 层 | 选型 | 说明 |
 |----|------|------|
-| 后端 API | FastAPI（Python） | 复用 Phase 01～02 代码；`/search`、`/items/{id}` 等端点 |
-| 前端 | React（Vite）| 轻量，无 SSR；与后端完全解耦 |
-| 图片存储 | Cloudflare R2 | Phase 03 前从本地迁入；`image_path` / `thumbnail_path` 更新为 R2 公开 URL |
-| 后端部署 | Fly.io | 含持久化磁盘（挂载 SQLite 文件） |
-| 前端部署 | Vercel | 静态托管，自动 CI/CD |
+| 后端 API | FastAPI（Python） | 复用 Phase 01～02 代码；所有端点统一加 `/api` 前缀 |
+| 前端 | React（Vite）| `build.outDir` 指向 `backend/static/`；由 FastAPI `StaticFiles` serve |
+| 图片存储 | 阿里云 OSS 香港节点 | Phase 03 前从本地迁入；`image_path` / `thumbnail_path` 更新为 OSS 公开 URL |
+| 部署 | Fly.io `hkg` region | 含 persistent volume（挂载 SQLite 文件）；香港节点大陆延迟约 30-50ms |
+| CI/CD | GitHub Actions → Fly.io | 前端 build + `flyctl deploy --remote-only`；统一单流水线 |
 
 ### API 端点（MVP 最小集）
 
 | 端点 | 方法 | 说明 |
 |------|------|------|
-| `/search` | GET | `?q=自然语言&tags=tag1,tag2&limit=20`；返回 Item 列表（含 thumbnail_url） |
-| `/items/{id}` | GET | 返回单条 Item 详情（含 image_url、tags、description） |
-| `/tags` | GET | 返回全量标签列表，用于 UC-03 标签筛选面板 |
+| `/api/search` | GET | `?q=自然语言&tags=tag1,tag2&limit=20&offset=0`；返回 Item 列表（含 thumbnail_url） |
+| `/api/items/{id}` | GET | 返回单条 Item 详情（含 image_url、tags、description） |
+| `/api/tags` | GET | 返回全量标签列表（按出现频次排序），用于 UC-03 标签筛选面板 |
 
 ### 部署流程
 
 ```
 代码推送 main 分支
     │
-    ├─ GitHub Actions → Fly.io 部署后端
-    │
-    └─ Vercel 自动检测 → 部署前端静态资源
+    └─ GitHub Actions
+            │
+            ├─ npm ci && npm run build    ← 前端构建，产物输出至 backend/static/
+            │
+            └─ flyctl deploy --remote-only ← 打包镜像（含前端产物）并部署至 Fly.io hkg
 ```
 
 <details>
@@ -329,15 +337,19 @@ WHERE EXISTS (
 
 **Next.js 全栈（SSR）vs FastAPI + 静态前端（已选）**
 - Next.js：前后端一套代码，Vercel 零配置部署，但 API routes 为 Node.js，调用 Python sqlite-vec 需要额外进程通信或放弃 sqlite-vec
-- **FastAPI + 静态前端（已选）**：后端直接复用 Phase 01～02 Python 代码，sqlite-vec 无缝集成；前端静态部署成本更低；对后端倾向的开发者更顺手
+- **FastAPI + 静态前端（已选）**：后端直接复用 Phase 01～02 Python 代码，sqlite-vec 无缝集成；前端合并部署，无额外托管依赖
 
-**托管：Fly.io vs Railway vs VPS**
-- Railway：易用，但免费额度 2026 年后收紧
-- VPS（如 DigitalOcean）：灵活，但需手动运维
-- **Fly.io（已选）**：免费额度含持久化磁盘，SQLite 文件可直接挂载，适合个人项目
+**前端托管：Vercel vs FastAPI StaticFiles（已选）**
+- Vercel：CI/CD 便捷，但大陆访问不稳定，且需维护双平台
+- **FastAPI StaticFiles（已选）**：前后端同域同节点，无跨域问题；部署流水线统一；大陆访问体验取决于 Fly.io hkg，与 API 一致
 
-**图片存储：Cloudflare R2 vs 阿里云 OSS**
-- 阿里云 OSS：国内访问快，但免费额度少
-- **R2（已选）**：免费 10 GB + 免费出口流量（无 egress 费用），对个人项目几乎零成本
+**托管：Fly.io hkg vs Railway vs VPS**
+- Railway：易用，但免费额度 2026 年后收紧；香港节点可用性待确认
+- VPS（如阿里云香港 ECS）：灵活可控，但需手动运维 nginx / SSL / 更新
+- **Fly.io hkg（已选）**：免费额度含 persistent volume，SQLite 直接挂载；香港节点，大陆延迟可接受；自动 TLS；适合个人项目
+
+**图片存储：Cloudflare R2 vs 阿里云 OSS 香港（已选）**
+- Cloudflare R2：免费 10 GB + 无 egress 费用，但无 CDN（R2 公开访问走 Cloudflare 边缘，大陆不稳定）
+- **阿里云 OSS 香港（已选）**：大陆直连延迟低（30-50ms）；开发者已有阿里云账号；500 张图成本约 ¥0.12/GB/月，几乎忽略不计
 
 </details>
