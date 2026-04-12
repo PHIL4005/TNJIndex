@@ -1,6 +1,7 @@
 # Phase 04 — MVP 开发与上线
 
 > 状态: **进行中** | 依赖: Phase 03 ✅（含 OSS 图片迁移）  
+> 进度: **S1–S2 ✅**（后端 API + 本地 UC-01 搜索页已验收）；**S3** UC-02 Modal、**S4** 部署与 CI/CD 待办。  
 > 目标: 按 Phase 03 设计完成 UC-01/02 并部署上线；UC-03/04（P1）完成后追加。
 
 ---
@@ -10,8 +11,8 @@
 | 功能 | 优先级 | 说明 |
 |------|--------|------|
 | Backend API（3 端点） | P0 | `/api/search`、`/api/items/{id}`、`/api/tags` |
-| 搜索质量优化 | P0 | ⚠️ 当前检索效果差强人意，S1 中先诊断优化，再开前端 |
-| 前端 UC-01 自然语言搜索 | P0 | 搜索框 + Masonry + 无限滚动 + 全状态覆盖 |
+| 搜索质量优化 | P0 | S1 诊断 + Phase 02 S2-v2 标注/向量侧已改善；可选 FTS5 等见 S1 checklist |
+| 前端 UC-01 自然语言搜索 | P0 | 搜索框 + Masonry + 无限滚动 + 全状态覆盖（**本地已交付**，2026-04-12） |
 | 前端 UC-02 素材详情 Modal | P0 | 大图 + 标签 + 描述 + 多种关闭方式 |
 | Dockerfile + Fly.io 部署 | P0 | 香港节点，含 persistent volume（SQLite）|
 | GitHub Actions CI/CD | P0 | push main 自动 build + deploy |
@@ -77,8 +78,8 @@ TNJIndex/
 
 - [x] 创建 `backend/` 模块，`main.py` 配置：
   - [x] `/api` 路由前缀（须在 StaticFiles 之前注册）
-  - [ ] `StaticFiles(directory="backend/static", html=True)` mount 到 `/`（待 S2 前端构建产物）
-  - [ ] CORS 中间件（开发阶段允许 localhost:5173）（待 S2 前后端联调）
+  - [x] `StaticFiles(directory="backend/static", html=True)` mount 到 `/`（目录存在时挂载；`npm run build` 后产物写入 `backend/static`）
+  - [x] CORS 中间件（开发阶段允许 `http://localhost:5173`）
 - [x] `deps.py`：`get_db()` 依赖，返回 sqlite-vec 已加载的 `sqlite3.Connection`
 - [x] `schemas.py`：定义响应模型
   - `ItemSummary`（id, title, `thumbnail_url`，tags，score）
@@ -111,8 +112,8 @@ TNJIndex/
 - [ ] （可选）若上线后仍弱：query 预处理 / cosine / FTS5 等——按需另开任务
 
 **验收**：
-- [ ] `uvicorn backend.main:app --reload` 本地启动无报错
-- [ ] curl 3 个端点返回符合 schema 的 JSON
+- [x] `uv run uvicorn backend.main:app --reload` 本地启动无报错
+- [x] curl 3 个端点返回符合 schema 的 JSON
 - [x] 固定查询集主观检索：S2-v2 后已确认明显改善（`eval_memo.md`）
 
 ---
@@ -123,9 +124,9 @@ TNJIndex/
 
 #### 项目初始化
 
-- [ ] `frontend/` 初始化（`npm create vite@latest` React + TypeScript）
-- [ ] 安装依赖：shadcn/ui、Tailwind CSS v4、`react-masonry-css`
-- [ ] 配置 Tailwind 色彩 token（深色主题，对齐 Phase 03 S3 色彩方案）：
+- [x] `frontend/` 初始化（Vite + React + TypeScript）
+- [x] 安装依赖：shadcn/ui、Tailwind CSS v4、`react-masonry-css`
+- [x] 配置 Tailwind 色彩 token（深色主题，对齐 Phase 03 S3 色彩方案）：
 
   | Token | 值 | 用途 |
   |-------|----|------|
@@ -136,23 +137,23 @@ TNJIndex/
   | `foreground` | `#f4f4f5` | 正文/标题 |
   | `muted` | `#71717a` | 元数据/次要信息 |
 
-- [ ] `vite.config.ts`：`build.outDir: "../backend/static"`；开发代理 `/api` → `localhost:8000`
-- [ ] `lib/api.ts`：fetch 封装，类型定义对齐 backend schemas
+- [x] `vite.config.ts`：`build.outDir: "../backend/static"`；开发代理 `/api` → `localhost:8000`
+- [x] `lib/api.ts`：fetch 封装，类型定义对齐 backend schemas
 
 #### UC-01 实现
 
-- [ ] `SearchBar.tsx`：搜索框 + Enter/按钮触发；placeholder 随机轮换示例短语
-- [ ] `ImageCard.tsx`：缩略图卡片；hover `scale-[1.02]` + 橙色细边框，过渡 150ms
-- [ ] `MasonryGrid.tsx`：瀑布流（PC 4列 / 平板 2列 / 手机 1列）
-- [ ] `useSearch.ts`：搜索状态管理（loading / data / error / empty）
-- [ ] `useInfiniteScroll.ts`：IntersectionObserver 触底加载下一页
-- [ ] 热门标签区：调用 `/api/tags` 取前 8，点击直接触发搜索
-- [ ] 状态覆盖：初始全量展示（无搜索词）、加载骨架屏、空结果、网络错误 Toast
+- [x] `SearchBar.tsx`：搜索框 + Enter/按钮触发；placeholder 随机轮换示例短语
+- [x] `ImageCard.tsx`：缩略图卡片；hover `scale-[1.02]` + 橙色细边框，过渡 150ms
+- [x] `MasonryGrid.tsx`：瀑布流（PC 4列 / 平板 2列 / 手机 1列）
+- [x] `useSearch.ts`：搜索状态管理（loading / data / error / empty）
+- [x] `useInfiniteScroll.ts`：IntersectionObserver 触底加载下一页
+- [x] 热门标签区：调用 `/api/tags` 取前 8，点击直接触发搜索（依赖 `scrapers/db.py` 中 `check_same_thread=False`，避免 FastAPI 线程池与 SQLite 线程检查冲突）
+- [x] 状态覆盖：初始全量展示（无搜索词）、加载骨架屏、空结果、网络错误 Toast
 
 **验收**：
-- [ ] `npm run dev` + `uvicorn backend.main:app --reload` 同时启动，搜索全流程可用
-- [ ] 3 种断点（PC / 平板 / 手机）Masonry 布局正常
-- [ ] 空结果、网络错误 UI 已实现
+- [x] `npm run dev` + `uv run uvicorn backend.main:app --reload` 同时启动，搜索全流程可用
+- [x] 3 种断点（PC / 平板 / 手机）Masonry 布局正常
+- [x] 空结果、网络错误 UI 已实现
 
 ---
 
@@ -253,9 +254,9 @@ jobs:
 ## 验收标准（Phase 04 总体）
 
 - [ ] 公开可访问的 HTTPS URL（Fly.io hkg 节点）
-- [ ] UC-01：自然语言搜索返回相关梗图，Masonry 布局正常，无限滚动可用
+- [x] UC-01：自然语言搜索返回相关梗图，Masonry 布局正常，无限滚动可用（本地联调已验收，2026-04-12）
 - [ ] UC-02：点击图片弹出 Modal，展示大图/标签/描述
-- [ ] 搜索质量：固定查询集 Top-5 主观满意
+- [x] 搜索质量：固定查询集 Top-5 主观满意（S2-v2 / `eval_memo.md` + 本地 UC-01 联调；公网环境 S4 后再检）
 - [ ] push main 自动触发 CI/CD，部署成功
 - [ ] 大陆网络环境下体验可接受
 
@@ -263,8 +264,8 @@ jobs:
 
 ## 任务清单
 
-- [x] S1 后端 API 搭建 + 搜索质量优化（核心三端点 + DB 依赖 + 语义 distance 阈值；`backend/static` 与 CORS 随 S2 补齐）
-- [ ] S2 前端搭建 + UC-01 搜索页
+- [x] S1 后端 API 搭建 + 搜索质量优化（核心三端点 + DB 依赖 + 语义 distance 阈值；`backend/static` 条件挂载 + CORS 已落地）
+- [x] S2 前端搭建 + UC-01 搜索页（2026-04-12 验收）
 - [ ] S3 UC-02 详情 Modal + 端到端联调
 - [ ] S4 Dockerfile + Fly.io + CI/CD
-- [x] 更新 `docs/mvp/00_roadmap.md` Phase 04 状态为「进行中」
+- [x] 同步 `docs/mvp/00_roadmap.md` Phase 04 进度（S2 完成说明）
