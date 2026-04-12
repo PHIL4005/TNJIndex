@@ -306,6 +306,7 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    environment: prod   # 使用 GitHub Environment「prod」中的 Secrets（如 FLY_API_TOKEN）
     steps:
       - uses: actions/checkout@v4
 

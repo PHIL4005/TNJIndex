@@ -210,7 +210,7 @@ TNJIndex/
 
 实现见 [`.github/workflows/deploy.yml`](../../.github/workflows/deploy.yml)：`actions/setup-node`（Node 20、`npm` cache）+ `npm ci` / `npm run build`（提前失败）+ `flyctl deploy --remote-only`。
 
-- [ ] 在 GitHub 仓库 Secrets 中配置 `FLY_API_TOKEN`（`fly tokens create deploy -a <app名>`）
+- [ ] 在 GitHub **Environment `prod`** 的 Secrets 中配置 `FLY_API_TOKEN`（workflow 已写 `environment: prod`；token：`fly tokens create deploy -a <app名>`）
 - [ ] push `main` 触发 workflow，验证 Actions 绿
 
 **验收**：
