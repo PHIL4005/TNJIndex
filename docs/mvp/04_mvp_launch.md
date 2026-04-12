@@ -1,7 +1,7 @@
 # Phase 04 — MVP 开发与上线
 
 > 状态: **进行中** | 依赖: Phase 03 ✅（含 OSS 图片迁移）  
-> 进度: **S1–S3 ✅**（后端 API + UC-01 搜索 + **UC-02 Modal 本地联调**，2026-04-12）；**S4** 部署与 CI/CD 待办。  
+> 进度: **S1–S3 ✅**（后端 API + UC-01 搜索 + **UC-02 Modal 本地联调**，2026-04-12）；**S4** 仓库侧 Dockerfile / `fly.toml` / GitHub Actions 已落地（2026-04-12）；**Fly.io 首次部署、卷内 DB 上传、GitHub `FLY_API_TOKEN`、公网验收** 待维护者执行。  
 > 目标: 按 Phase 03 设计完成 UC-01/02 并部署上线；UC-03/04（P1）完成后追加。
 
 ---
@@ -184,66 +184,34 @@ TNJIndex/
 
 #### Dockerfile
 
-```dockerfile
-# Stage 1: 前端构建
-FROM node:20-alpine AS frontend-build
-WORKDIR /app/frontend
-COPY frontend/package*.json ./
-RUN npm ci
-COPY frontend/ .
-RUN npm run build          # 产物输出至 ../backend/static
+实现见仓库根目录 [`Dockerfile`](../../Dockerfile)（多阶段 + `gcc`/`libsqlite3-dev` 以编译 `pysqlite3`）及 [`.dockerignore`](../../.dockerignore)。
 
-# Stage 2: 后端运行时
-FROM python:3.12-slim
-WORKDIR /app
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
-COPY pyproject.toml uv.lock ./
-RUN uv sync --frozen --no-dev
-COPY . .
-COPY --from=frontend-build /app/backend/static backend/static
-CMD ["uv", "run", "uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8000"]
-```
+- [x] `Dockerfile` + `.dockerignore`（构建上下文排除 `data/`、`.env`、`backend/static` 等）
+- [x] `fly.toml`：`primary_region = "hkg"`，`[mounts]` → `/data`，`[http_service]` 8000、scale-to-zero 友好
+- [ ] 本机 `docker build -t tnjindex:local .` 与 `docker run` 冒烟（需本机安装 Docker；CI 环境未装 Docker 时跳过）
 
-- [ ] `fly.toml` 配置（对齐 Phase 03 S5 设计）：`primary_region = "hkg"`，persistent volume 挂载 `/data`
-- [ ] 本地 `docker build && docker run` 验证可访问
+#### Fly.io 首次部署（维护者操作）
 
-#### Fly.io 首次部署
+- [ ] 配置 Fly.io secrets（**与代码一致**的变量名；检索运行时需 **query 侧 embedding**，与 DB 内图片 URL 无强绑定）：
 
-- [ ] 配置 Fly.io secrets：
-
-  | 变量 | 说明 |
-  |------|------|
-  | `DATABASE_PATH` | `/data/tnjindex.db` |
-  | `OSS_ENDPOINT` / `OSS_BUCKET` | 阿里云 OSS HK |
-  | `OSS_ACCESS_KEY_ID` / `OSS_ACCESS_KEY_SECRET` | RAM 子账号（只读 OSS）|
-  | `TNJ_EMBED_PROVIDER` / `TNJ_EMBED_MODEL` | Embedding 模型 |
+  | 变量 | 必填 | 说明 |
+  |------|------|------|
+  | `DATABASE_PATH` | 是 | `/data/tnjindex.db`（与 volume 挂载一致） |
+  | `TNJ_EMBED_PROVIDER` | 建议 | `dashscope` 或 `openai`；未设时回退逻辑见 `pipelines/embed_client.py` |
+  | `DASHSCOPE_API_KEY` | 若用 DashScope embed | 与 Phase 02 全量 embed 厂商一致即可 |
+  | `OPENAI_API_KEY` | 若用 OpenAI embed | 同上 |
+  | `TNJ_EMBED_MODEL` | 否 | 覆盖默认 embedding 型号 |
+  | `ALIYUN_OSS_*` | 否 | **MVP 读路径**：`image_path`/`thumbnail_path` 已为 OSS 公网 URL 时，API 进程可不读 OSS；仅管线/迁移脚本需要 |
 
 - [ ] `fly deploy` 首次部署，公网 HTTPS URL 验证 UC-01/02 可用
-- [ ] 将本地 `data/tnjindex.db` 上传至 persistent volume
+- [ ] 将本地 `data/db/tnjindex.db` 上传至 volume（如 `fly ssh sftp shell` → `put … /data/tnjindex.db`）
 
 #### CI/CD
 
-```yaml
-# .github/workflows/deploy.yml
-name: Deploy
-on:
-  push:
-    branches: [main]
-jobs:
-  deploy:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Build frontend
-        run: cd frontend && npm ci && npm run build
-      - uses: superfly/flyctl-actions/setup-flyctl@master
-      - run: flyctl deploy --remote-only
-        env:
-          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
-```
+实现见 [`.github/workflows/deploy.yml`](../../.github/workflows/deploy.yml)：`actions/setup-node`（Node 20、`npm` cache）+ `npm ci` / `npm run build`（提前失败）+ `flyctl deploy --remote-only`。
 
-- [ ] 配置 `FLY_API_TOKEN` GitHub secret
-- [ ] push main 触发 workflow，验证 Actions 绿
+- [ ] 在 GitHub 仓库 Secrets 中配置 `FLY_API_TOKEN`（`fly tokens create deploy -a <app名>`）
+- [ ] push `main` 触发 workflow，验证 Actions 绿
 
 **验收**：
 - [ ] 公网 HTTPS URL 可访问，UC-01/02 功能完整
@@ -268,5 +236,5 @@ jobs:
 - [x] S1 后端 API 搭建 + 搜索质量优化（核心三端点 + DB 依赖 + 语义 distance 阈值；`backend/static` 条件挂载 + CORS 已落地）
 - [x] S2 前端搭建 + UC-01 搜索页（2026-04-12 验收）
 - [x] S3 UC-02 详情 Modal + 端到端联调（2026-04-12）
-- [ ] S4 Dockerfile + Fly.io + CI/CD
-- [x] 同步 `docs/mvp/00_roadmap.md` Phase 04 进度（S2 / S3 完成说明）
+- [ ] S4 Dockerfile + Fly.io + CI/CD（**配置已入仓**；首次 `fly deploy` / 卷 DB / `FLY_API_TOKEN` / 公网验收仍待办）
+- [x] 同步 `docs/mvp/00_roadmap.md` Phase 04 进度（S2 / S3 / S4 配置入仓说明）

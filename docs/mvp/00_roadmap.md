@@ -102,7 +102,7 @@ MVP 交付物是一个**可公开访问的网站**，满足以下用例：
 ### Phase 04 · MVP 开发与上线
 
 > 详细文档：[`04_mvp_launch.md`](04_mvp_launch.md)  
-> 🚧 **进行中**（2026-04-12）：S1 `backend/` API、CORS、`backend/static` 条件挂载与语义检索阈值已落地；**S2** 前端 UC-01（Vite + shadcn + Masonry + 无限滚动 + `/api/tags` 热门标签）**本地验收通过**；**S3** UC-02 详情 Modal（Radix Dialog、`/api/items/{id}` 懒加载、三种关闭方式）**本地验收通过**。SQLite 连接使用 `scrapers/db.py` 中 `check_same_thread=False` 以兼容 FastAPI 线程池。下一步 **S4** Fly.io + Actions。  
+> 🚧 **进行中**（2026-04-12）：S1 `backend/` API、CORS、`backend/static` 条件挂载与语义检索阈值已落地；**S2** 前端 UC-01（Vite + shadcn + Masonry + 无限滚动 + `/api/tags` 热门标签）**本地验收通过**；**S3** UC-02 详情 Modal（Radix Dialog、`/api/items/{id}` 懒加载、三种关闭方式）**本地验收通过**。SQLite 连接使用 `scrapers/db.py` 中 `check_same_thread=False` 以兼容 FastAPI 线程池。**S4** 仓库侧已提交 `Dockerfile`、`.dockerignore`、`fly.toml`、`.github/workflows/deploy.yml`；**Fly.io 首次部署、volume 内 DB、GitHub `FLY_API_TOKEN`、公网验收** 仍待维护者执行。  
 > ⚠️ 技术前置：Phase 03 完成
 
 **目标**：按 Phase 03 的设计，把 UC-01～UC-02（P0）开发完成并部署上线；UC-03／UC-04（P1）量力而行。
