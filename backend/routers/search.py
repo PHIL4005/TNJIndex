@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import sqlite3
 
 from fastapi import APIRouter, Depends, Query
@@ -11,6 +12,15 @@ from backend.schemas import ItemSummary, SearchResponse
 from pipelines.search import search as semantic_search
 
 router = APIRouter(tags=["search"])
+
+
+def _semantic_distance_threshold_max() -> float:
+    """Max sqlite-vec distance to keep; drop rows with distance strictly greater than this."""
+    raw = (os.environ.get("SCORE_THRESHOLD_MAX") or "1.0").strip()
+    try:
+        return max(0.0, float(raw))
+    except ValueError:
+        return 1.0
 
 
 def _normalize_filter_tags(tags: list[str]) -> list[str]:
@@ -96,8 +106,15 @@ def api_search(
             )
         return SearchResponse(results=results, query=q_stripped, total=total)
 
-    fetch_k = max(1, min(limit + offset + 20, 500))
+    # Extra headroom so distance threshold + tag filter still fill the page when possible.
+    fetch_k = max(1, min(limit + offset + 100, 500))
     raw_rows = semantic_search(q_stripped, k=fetch_k, conn=conn)
+    dist_max = _semantic_distance_threshold_max()
+    raw_rows = [
+        r
+        for r in raw_rows
+        if r.get("score") is None or float(r["score"]) <= dist_max
+    ]
 
     def _row_has_filter_tags(r: dict) -> bool:
         if not filter_tags:

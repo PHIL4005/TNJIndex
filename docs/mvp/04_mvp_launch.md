@@ -1,6 +1,6 @@
 # Phase 04 — MVP 开发与上线
 
-> 状态: **规划中** | 依赖: Phase 03 ✅（含 OSS 图片迁移）  
+> 状态: **进行中** | 依赖: Phase 03 ✅（含 OSS 图片迁移）  
 > 目标: 按 Phase 03 设计完成 UC-01/02 并部署上线；UC-03/04（P1）完成后追加。
 
 ---
@@ -75,19 +75,19 @@ TNJIndex/
 
 #### API 搭建
 
-- [ ] 创建 `backend/` 模块，`main.py` 配置：
-  - `/api` 路由前缀（须在 StaticFiles 之前注册）
-  - `StaticFiles(directory="backend/static", html=True)` mount 到 `/`
-  - CORS 中间件（开发阶段允许 localhost:5173）
-- [ ] `deps.py`：`get_db()` 依赖，返回 sqlite-vec 已加载的 `sqlite3.Connection`
-- [ ] `schemas.py`：定义响应模型
-  - `ItemSummary`（id, title, thumbnail_path, tags）
-  - `ItemDetail`（id, title, image_path, thumbnail_path, tags, description）
+- [x] 创建 `backend/` 模块，`main.py` 配置：
+  - [x] `/api` 路由前缀（须在 StaticFiles 之前注册）
+  - [ ] `StaticFiles(directory="backend/static", html=True)` mount 到 `/`（待 S2 前端构建产物）
+  - [ ] CORS 中间件（开发阶段允许 localhost:5173）（待 S2 前后端联调）
+- [x] `deps.py`：`get_db()` 依赖，返回 sqlite-vec 已加载的 `sqlite3.Connection`
+- [x] `schemas.py`：定义响应模型
+  - `ItemSummary`（id, title, `thumbnail_url`，tags，score）
+  - `ItemDetail`（id, title, `image_url`，`thumbnail_url`，tags, description）
   - `TagCount`（name, count）
-- [ ] `routers/search.py`：`GET /api/search?q=&tags=&limit=&offset=`，调用（优化后的）`pipelines/search.py`
-- [ ] `routers/items.py`：`GET /api/items/{id}`
-- [ ] `routers/tags.py`：`GET /api/tags`，按出现频次排序
-- [ ] 废弃 `pipelines/app.py`
+- [x] `routers/search.py`：`GET /api/search?q=&tags=&limit=&offset=`，调用 `pipelines/search.py`；语义路径 **distance 阈值**（环境变量 `SCORE_THRESHOLD_MAX`，默认 `1.0`）在 router 层过滤远距结果
+- [x] `routers/items.py`：`GET /api/items/{id}`
+- [x] `routers/tags.py`：`GET /api/tags`，按出现频次排序
+- [x] 废弃 `pipelines/app.py`（模块顶部 `DeprecationWarning`）
 
 #### ⚠️ 搜索质量诊断与优化
 
@@ -263,8 +263,8 @@ jobs:
 
 ## 任务清单
 
-- [ ] S1 后端 API 搭建 + 搜索质量优化
+- [x] S1 后端 API 搭建 + 搜索质量优化（核心三端点 + DB 依赖 + 语义 distance 阈值；`backend/static` 与 CORS 随 S2 补齐）
 - [ ] S2 前端搭建 + UC-01 搜索页
 - [ ] S3 UC-02 详情 Modal + 端到端联调
 - [ ] S4 Dockerfile + Fly.io + CI/CD
-- [ ] 更新 `docs/mvp/00_roadmap.md` Phase 04 状态为「进行中」
+- [x] 更新 `docs/mvp/00_roadmap.md` Phase 04 状态为「进行中」
