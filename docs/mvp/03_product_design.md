@@ -16,7 +16,7 @@
 | **UC-03 标签筛选** | 标签多选 + 与搜索词组合 | P1 |
 | **UC-04 素材复用** | 复制图片链接 + Toast 反馈 | P1 |
 | **前端技术准备** | 组件库选型、项目结构、FastAPI serve 静态资源方案 | P0 |
-| **部署与 CI/CD** | Fly.io hkg 配置规划、GitHub Actions workflow | P0 |
+| **部署与 CI/CD** | Fly.io `sin` 配置规划、GitHub Actions workflow | P0 |
 
 **不在范围：** 实际代码开发（Phase 04）；再次扩量爬虫；用户账号系统。
 
@@ -44,7 +44,7 @@
 |----|--------|--------|------|
 | 图片存储 | Cloudflare R2 | **阿里云 OSS 香港节点** | R2 无 CDN，大陆直连慢；OSS HK 延迟低 |
 | 前端托管 | Vercel | **FastAPI `StaticFiles` serve 前端产物** | Vercel 大陆访问不稳定；合并到同一 app 简化部署 |
-| 后端部署 | Fly.io（区域未指定） | **Fly.io `hkg` region** | 香港节点大陆延迟约 30-50ms，可接受 |
+| 后端部署 | Fly.io（区域未指定） | **Fly.io `sin` region** | Fly 已不再提供 `hkg`；新加坡节点大陆延迟通常可接受（因线路而异） |
 | CI/CD | Vercel 自动 + GitHub Actions | **GitHub Actions 统一** | 前后端合并后无需双平台 |
 
 **任务**：
@@ -269,7 +269,7 @@ app.mount("/", StaticFiles(directory="static", html=True), name="static")
 ```toml
 # fly.toml（关键字段）
 app = "tnjindex"
-primary_region = "hkg"          # 香港节点
+primary_region = "sin"          # 新加坡；Fly 已不再提供 hkg，volume 须同区
 
 [build]
   dockerfile = "Dockerfile"

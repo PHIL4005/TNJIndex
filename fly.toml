@@ -1,6 +1,6 @@
 # App name must match `fly apps create <name>` (or change this line).
 app = "tnjindex"
-primary_region = "hkg"
+primary_region = "sin"
 
 [build]
 

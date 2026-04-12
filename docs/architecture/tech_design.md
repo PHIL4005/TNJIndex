@@ -289,12 +289,12 @@ WHERE EXISTS (
 
 ### 整体架构
 
-**FastAPI 一体化部署**：后端同时提供 API 与前端静态资源，统一部署于 Fly.io 香港节点；图片存储于阿里云 OSS 香港节点。
+**FastAPI 一体化部署**：后端同时提供 API 与前端静态资源，统一部署于 Fly.io **新加坡 `sin` 区域**（Fly 已不再提供香港 `hkg` Machines）；图片存储仍于阿里云 OSS 香港节点。
 
 ```
 用户浏览器（主要：中国大陆）
     │
-    └─ 所有请求 → FastAPI（Fly.io hkg 节点，延迟约 30-50ms）
+    └─ 所有请求 → FastAPI（Fly.io `sin` 节点；HTML/API RTT 因大陆出口线路而异，通常几十～百余 ms 量级）
                         │
                         ├─ /api/* → 业务 API 端点
                         │       └─ SQLite + sqlite-vec（persistent volume）
@@ -307,7 +307,7 @@ WHERE EXISTS (
 选型理由：
 - Phase 01～02 已是 Python；FastAPI 直接复用 sqlite-vec 查询逻辑，无需跨语言桥接
 - 前端无 SEO 强需求（工具站），纯静态够用，无需 SSR
-- **前后端合并部署**：消除 Vercel（大陆访问不稳定）；所有流量走单一香港节点，体验一致
+- **前后端合并部署**：消除 Vercel（大陆访问不稳定）；HTML/API 走单一 Fly 区域（`sin`），体验一致
 - **图片存储换 OSS HK**：阿里云 OSS 香港节点大陆直连延迟低；R2 无 CDN 大陆直连慢
 
 ### 技术栈
@@ -317,7 +317,7 @@ WHERE EXISTS (
 | 后端 API | FastAPI（Python） | 复用 Phase 01～02 代码；所有端点统一加 `/api` 前缀 |
 | 前端 | React（Vite）| `build.outDir` 指向 `backend/static/`；由 FastAPI `StaticFiles` serve |
 | 图片存储 | 阿里云 OSS 香港节点 | Phase 03 已从本地迁入；`image_path` / `thumbnail_path` 为 OSS 公开 URL |
-| 部署 | Fly.io `hkg` region | 含 persistent volume（挂载 SQLite 文件）；香港节点大陆延迟约 30-50ms |
+| 部署 | Fly.io `sin` region | 含 persistent volume（挂载 SQLite 文件）；Fly 已不再提供 `hkg`，与 volume 同区部署 |
 | CI/CD | GitHub Actions → Fly.io | 前端 build + `flyctl deploy --remote-only`；统一单流水线 |
 
 ### API 端点（MVP 最小集）
@@ -337,7 +337,7 @@ WHERE EXISTS (
             │
             ├─ npm ci && npm run build    ← 前端构建，产物输出至 backend/static/
             │
-            └─ flyctl deploy --remote-only ← 打包镜像（含前端产物）并部署至 Fly.io hkg
+            └─ flyctl deploy --remote-only ← 打包镜像（含前端产物）并部署至 Fly.io `sin`
 ```
 
 <details>
@@ -349,12 +349,12 @@ WHERE EXISTS (
 
 **前端托管：Vercel vs FastAPI StaticFiles（已选）**
 - Vercel：CI/CD 便捷，但大陆访问不稳定，且需维护双平台
-- **FastAPI StaticFiles（已选）**：前后端同域同节点，无跨域问题；部署流水线统一；大陆访问体验取决于 Fly.io hkg，与 API 一致
+- **FastAPI StaticFiles（已选）**：前后端同域同节点，无跨域问题；部署流水线统一；大陆访问体验取决于 Fly.io 所选区域（当前 `sin`），与 API 一致
 
-**托管：Fly.io hkg vs Railway vs VPS**
-- Railway：易用，但免费额度 2026 年后收紧；香港节点可用性待确认
+**托管：Fly.io `sin` vs Railway vs VPS**
+- Railway：易用，但免费额度 2026 年后收紧；区域与定价以官方为准
 - VPS（如阿里云香港 ECS）：灵活可控，但需手动运维 nginx / SSL / 更新
-- **Fly.io hkg（已选）**：免费额度含 persistent volume，SQLite 直接挂载；香港节点，大陆延迟可接受；自动 TLS；适合个人项目
+- **Fly.io `sin`（已选）**：免费额度含 persistent volume，SQLite 直接挂载；Fly 已不再提供 `hkg` Machines，故采用新加坡；自动 TLS；适合个人项目
 
 **图片存储：Cloudflare R2 vs 阿里云 OSS 香港（已选）**
 - Cloudflare R2：免费 10 GB + 无 egress 费用，但无 CDN（R2 公开访问走 Cloudflare 边缘，大陆不稳定）

@@ -187,7 +187,7 @@ TNJIndex/
 实现见仓库根目录 [`Dockerfile`](../../Dockerfile)（多阶段 + `gcc`/`libsqlite3-dev` 以编译 `pysqlite3`）及 [`.dockerignore`](../../.dockerignore)。
 
 - [x] `Dockerfile` + `.dockerignore`（构建上下文排除 `data/`、`.env`、`backend/static` 等）
-- [x] `fly.toml`：`primary_region = "hkg"`，`[mounts]` → `/data`，`[http_service]` 8000、scale-to-zero 友好
+- [x] `fly.toml`：`primary_region = "sin"`（Fly 已不再提供 `hkg`；volume 须同区），`[mounts]` → `/data`，`[http_service]` 8000、scale-to-zero 友好
 - [ ] 本机 `docker build -t tnjindex:local .` 与 `docker run` 冒烟（需本机安装 Docker；CI 环境未装 Docker 时跳过）
 
 #### Fly.io 首次部署（维护者操作）
@@ -222,7 +222,7 @@ TNJIndex/
 
 ## 验收标准（Phase 04 总体）
 
-- [ ] 公开可访问的 HTTPS URL（Fly.io hkg 节点）
+- [ ] 公开可访问的 HTTPS URL（Fly.io `sin` 节点；静态资源与 API 同域）
 - [x] UC-01：自然语言搜索返回相关梗图，Masonry 布局正常，无限滚动可用（本地联调已验收，2026-04-12）
 - [x] UC-02：点击图片弹出 Modal，展示大图/标签/描述（本地联调已验收，2026-04-12；公网 S4 后再检）
 - [x] 搜索质量：固定查询集 Top-5 主观满意（S2-v2 / `eval_memo.md` + 本地 UC-01 联调；公网环境 S4 后再检）

@@ -75,7 +75,7 @@ MVP 交付物是一个**可公开访问的网站**，满足以下用例：
 ### Phase 03 · 产品设计
 
 > 详细文档：[`03_product_design.md`](03_product_design.md)  
-> ✅ **已完成**：`tech_design §5` 定稿（Fly.io hkg + FastAPI serve 前端 + 阿里云 OSS HK）；S1–S5 与 `03_product_design.md` 验收已勾选；S2 图片已迁移至 OSS HK，`pipelines/migrate_to_oss.py` 与本地测试页验证通过。
+> ✅ **已完成**：`tech_design §5` 定稿（Fly.io `sin` + FastAPI serve 前端 + 阿里云 OSS HK）；S1–S5 与 `03_product_design.md` 验收已勾选；S2 图片已迁移至 OSS HK，`pipelines/migrate_to_oss.py` 与本地测试页验证通过。
 
 **目标**：Phase 04 开始写代码前，把「做什么」和「怎么做」都锁定——避免边写边推翻框架选型。
 
