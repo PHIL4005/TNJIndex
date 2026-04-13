@@ -1,8 +1,8 @@
 # Phase 04 — MVP 开发与上线
 
-> 状态: **进行中** | 依赖: Phase 03 ✅（含 OSS 图片迁移）  
-> 进度: **S1–S3 ✅**（后端 API + UC-01 搜索 + **UC-02 Modal 本地联调**，2026-04-12）；**S4** 仓库侧 Dockerfile / `fly.toml` / GitHub Actions 已落地（2026-04-12）；**Fly.io 首次部署、卷内 DB 上传、GitHub `FLY_API_TOKEN`、公网验收** 待维护者执行。  
-> 目标: 按 Phase 03 设计完成 UC-01/02 并部署上线；UC-03/04（P1）完成后追加。
+> 状态: **P0 已完成** | 依赖: Phase 03 ✅（含 OSS 图片迁移）  
+> 进度: **S1–S4 ✅**（2026-04-12）：后端 API + UC-01/02 本地联调；Dockerfile / `fly.toml`（`sin` 等 Fly 当前可用区）/ GitHub Actions；Fly.io 部署、volume 内 DB、`FLY_API_TOKEN`、公网 + CI 验收已通过。  
+> 目标: UC-01/02 已上线；**UC-03/04（P1）** 可后续追加。
 
 ---
 
@@ -14,7 +14,7 @@
 | 搜索质量优化 | P0 | S1 诊断 + Phase 02 S2-v2 标注/向量侧已改善；可选 FTS5 等见 S1 checklist |
 | 前端 UC-01 自然语言搜索 | P0 | 搜索框 + Masonry + 无限滚动 + 全状态覆盖（**本地已交付**，2026-04-12） |
 | 前端 UC-02 素材详情 Modal | P0 | 大图 + 标签 + 描述 + 多种关闭方式（**本地已交付**，2026-04-12） |
-| Dockerfile + Fly.io 部署 | P0 | 香港节点，含 persistent volume（SQLite）|
+| Dockerfile + Fly.io 部署 | P0 | Fly.io（如 `sin`；`hkg` 已不可用）+ persistent volume（SQLite）|
 | GitHub Actions CI/CD | P0 | push main 自动 build + deploy |
 | UC-03 标签筛选 | P1 | Phase 04 上线后追加 |
 | UC-04 素材复用（复制链接） | P1 | Phase 04 上线后追加 |
@@ -188,11 +188,11 @@ TNJIndex/
 
 - [x] `Dockerfile` + `.dockerignore`（构建上下文排除 `data/`、`.env`、`backend/static` 等）
 - [x] `fly.toml`：`primary_region = "sin"`（Fly 已不再提供 `hkg`；volume 须同区），`[mounts]` → `/data`，`[http_service]` 8000、scale-to-zero 友好
-- [ ] 本机 `docker build -t tnjindex:local .` 与 `docker run` 冒烟（需本机安装 Docker；CI 环境未装 Docker 时跳过）
+- [x] 镜像与运行：`fly deploy` 远端构建已通过；本机 `docker build` / `docker run` 仍为可选冒烟
 
 #### Fly.io 首次部署（维护者操作）
 
-- [ ] 配置 Fly.io secrets（**与代码一致**的变量名；检索运行时需 **query 侧 embedding**，与 DB 内图片 URL 无强绑定）：
+- [x] 配置 Fly.io secrets（**与代码一致**的变量名；检索运行时需 **query 侧 embedding**，与 DB 内图片 URL 无强绑定）：
 
   | 变量 | 必填 | 说明 |
   |------|------|------|
@@ -203,31 +203,31 @@ TNJIndex/
   | `TNJ_EMBED_MODEL` | 否 | 覆盖默认 embedding 型号 |
   | `ALIYUN_OSS_*` | 否 | **MVP 读路径**：`image_path`/`thumbnail_path` 已为 OSS 公网 URL 时，API 进程可不读 OSS；仅管线/迁移脚本需要 |
 
-- [ ] `fly deploy` 首次部署，公网 HTTPS URL 验证 UC-01/02 可用
-- [ ] 将本地 `data/db/tnjindex.db` 上传至 volume（如 `fly ssh sftp shell` → `put … /data/tnjindex.db`）
+- [x] `fly deploy` 部署，公网 HTTPS URL 验证 UC-01/02 可用
+- [x] 将本地 `data/db/tnjindex.db` 上传至 volume（如 `fly ssh sftp shell` → `put … /data/tnjindex.db`）
 
 #### CI/CD
 
 实现见 [`.github/workflows/deploy.yml`](../../.github/workflows/deploy.yml)：`actions/setup-node`（Node 20、`npm` cache）+ `npm ci` / `npm run build`（提前失败）+ `flyctl deploy --remote-only`。
 
-- [ ] 在 GitHub **Environment `prod`** 的 Secrets 中配置 `FLY_API_TOKEN`（workflow 已写 `environment: prod`；token：`fly tokens create deploy -a <app名>`）
-- [ ] push `main` 触发 workflow，验证 Actions 绿
+- [x] 在 GitHub **Environment `prod`** 的 Secrets 中配置 `FLY_API_TOKEN`（workflow 已写 `environment: prod`；token：`fly tokens create deploy -a <app名>`）
+- [x] push `main` 触发 workflow，验证 Actions 绿
 
 **验收**：
-- [ ] 公网 HTTPS URL 可访问，UC-01/02 功能完整
-- [ ] push main 自动触发部署，Actions green
-- [ ] 大陆网络下页面加载 ≤ 3s（首屏），搜索响应 ≤ 2s
+- [x] 公网 HTTPS URL 可访问，UC-01/02 功能完整
+- [x] push main 自动触发部署，Actions green
+- [x] 大陆网络下页面加载 ≤ 3s（首屏），搜索响应 ≤ 2s（维护者抽验通过）
 
 ---
 
 ## 验收标准（Phase 04 总体）
 
-- [ ] 公开可访问的 HTTPS URL（Fly.io `sin` 节点；静态资源与 API 同域）
+- [x] 公开可访问的 HTTPS URL（Fly.io `sin` 节点；静态资源与 API 同域）
 - [x] UC-01：自然语言搜索返回相关梗图，Masonry 布局正常，无限滚动可用（本地联调已验收，2026-04-12）
-- [x] UC-02：点击图片弹出 Modal，展示大图/标签/描述（本地联调已验收，2026-04-12；公网 S4 后再检）
-- [x] 搜索质量：固定查询集 Top-5 主观满意（S2-v2 / `eval_memo.md` + 本地 UC-01 联调；公网环境 S4 后再检）
-- [ ] push main 自动触发 CI/CD，部署成功
-- [ ] 大陆网络环境下体验可接受
+- [x] UC-02：点击图片弹出 Modal，展示大图/标签/描述（本地 + 公网已验收，2026-04-12）
+- [x] 搜索质量：固定查询集 Top-5 主观满意（S2-v2 / `eval_memo.md` + 本地 UC-01 联调；公网已抽验）
+- [x] push main 自动触发 CI/CD，部署成功
+- [x] 大陆网络环境下体验可接受（维护者抽验）
 
 ---
 
@@ -236,5 +236,5 @@ TNJIndex/
 - [x] S1 后端 API 搭建 + 搜索质量优化（核心三端点 + DB 依赖 + 语义 distance 阈值；`backend/static` 条件挂载 + CORS 已落地）
 - [x] S2 前端搭建 + UC-01 搜索页（2026-04-12 验收）
 - [x] S3 UC-02 详情 Modal + 端到端联调（2026-04-12）
-- [ ] S4 Dockerfile + Fly.io + CI/CD（**配置已入仓**；首次 `fly deploy` / 卷 DB / `FLY_API_TOKEN` / 公网验收仍待办）
-- [x] 同步 `docs/mvp/00_roadmap.md` Phase 04 进度（S2 / S3 / S4 配置入仓说明）
+- [x] S4 Dockerfile + Fly.io + CI/CD（部署、卷 DB、`FLY_API_TOKEN`、公网 + Actions 验收已通过，2026-04-12）
+- [x] 同步 `docs/mvp/00_roadmap.md` Phase 04 进度（含 S4 部署关门，2026-04-12）
