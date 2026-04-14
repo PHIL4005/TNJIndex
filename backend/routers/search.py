@@ -4,12 +4,12 @@ import json
 import os
 import sqlite3
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 
 from backend.deps import get_db
 from backend.path_urls import resolve_media_url
 from backend.schemas import ItemSummary, SearchResponse
-from pipelines.search import search as semantic_search
+from pipelines.search import search as semantic_search, search_by_image_bytes
 
 router = APIRouter(tags=["search"])
 
@@ -21,6 +21,16 @@ def _semantic_distance_threshold_max() -> float:
         return max(0.0, float(raw))
     except ValueError:
         return 1.0
+
+
+_ALLOWED_IMAGE_CONTENT_TYPES = frozenset({"image/jpeg", "image/png", "image/webp"})
+_MAX_IMAGE_UPLOAD_BYTES = 5 * 1024 * 1024
+
+
+def _normalize_upload_content_type(raw: str | None) -> str:
+    if not raw:
+        return ""
+    return raw.split(";", 1)[0].strip().lower()
 
 
 def _normalize_filter_tags(tags: list[str]) -> list[str]:
@@ -140,3 +150,51 @@ def api_search(
         for r in page_rows
     ]
     return SearchResponse(results=results, query=q_stripped, total=total)
+
+
+@router.post("/search/image", response_model=SearchResponse)
+async def api_search_image(
+    file: UploadFile = File(...),
+    limit: int = Query(12, ge=1, le=100),
+    offset: int = Query(0, ge=0),
+    conn: sqlite3.Connection = Depends(get_db),
+) -> SearchResponse:
+    ct = _normalize_upload_content_type(file.content_type)
+    if ct not in _ALLOWED_IMAGE_CONTENT_TYPES:
+        raise HTTPException(
+            status_code=422,
+            detail="仅支持 JPEG、PNG、WebP 图片",
+        )
+    data = await file.read()
+    if not data:
+        raise HTTPException(status_code=422, detail="空文件")
+    if len(data) > _MAX_IMAGE_UPLOAD_BYTES:
+        raise HTTPException(status_code=400, detail="图片大小不能超过 5MB")
+
+    dist_max = _semantic_distance_threshold_max()
+    fetch_k = max(1, min(limit + offset + 100, 500))
+    try:
+        raw_rows = search_by_image_bytes(data, k=fetch_k, conn=conn, mime=ct)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    except RuntimeError as e:
+        raise HTTPException(status_code=502, detail=str(e)) from e
+
+    raw_rows = [
+        r
+        for r in raw_rows
+        if r.get("score") is None or float(r["score"]) <= dist_max
+    ]
+    total = len(raw_rows)
+    page_rows = raw_rows[offset : offset + limit]
+    results = [
+        ItemSummary(
+            id=int(r["id"]),
+            title=r.get("title") or "",
+            thumbnail_url=resolve_media_url(r.get("thumbnail_path")),
+            tags=[str(t) for t in (r.get("tags") or [])],
+            score=float(r["score"]) if r.get("score") is not None else None,
+        )
+        for r in page_rows
+    ]
+    return SearchResponse(results=results, query="", total=total)
