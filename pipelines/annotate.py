@@ -22,7 +22,7 @@ from pipelines.constants import REPO_ROOT
 from pipelines.paths import pick_image_for_vision
 from pipelines.sqlite_vec import ensure_item_embeddings
 from pipelines.vision_client import Provider, annotate_image
-from scrapers.db import get_conn, update_annotation
+from scrapers.db import ensure_composition_column, get_conn, update_annotation
 
 
 def _load_dotenv() -> None:
@@ -96,6 +96,7 @@ def main(argv: list[str] | None = None) -> int:
 
     conn = get_conn()
     if not args.dry_run:
+        ensure_composition_column(conn)
         ensure_item_embeddings(conn)
 
     rows = _select_rows(conn, force=args.force, limit=args.limit)
@@ -130,7 +131,14 @@ def main(argv: list[str] | None = None) -> int:
 
         try:
             data = annotate_image(img_ref, provider=provider)
-            update_annotation(conn, item_id, data["title"], data["tags"], data["description"])
+            update_annotation(
+                conn,
+                item_id,
+                data["title"],
+                data["tags"],
+                data["description"],
+                composition=data["composition"],
+            )
             print(
                 f"[annotate] {idx}/{total} id={item_id} OK title={data['title']!r}",
                 flush=True,

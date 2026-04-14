@@ -34,8 +34,13 @@ def _load_dotenv() -> None:
         pass
 
 
-def _embed_input_text(description: str | None, tags_json: str) -> str:
+def _embed_input_text(
+    description: str | None,
+    tags_json: str,
+    composition: str | None = None,
+) -> str:
     desc = (description or "").strip()
+    comp = (composition or "").strip()
     try:
         tags_list: list[Any] = json.loads(tags_json or "[]")
     except json.JSONDecodeError:
@@ -43,9 +48,8 @@ def _embed_input_text(description: str | None, tags_json: str) -> str:
     if not isinstance(tags_list, list):
         tags_list = []
     tag_str = " ".join(str(t).strip() for t in tags_list if str(t).strip())
-    if desc and tag_str:
-        return f"{desc} {tag_str}"
-    return desc or tag_str or ""
+    parts = [p for p in (desc, comp, tag_str) if p]
+    return " ".join(parts)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -89,14 +93,14 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.force:
         sql = """
-            SELECT id, description, tags
+            SELECT id, description, tags, composition
             FROM items
             WHERE annotation_status = 'annotated'
             ORDER BY id
         """
     else:
         sql = """
-            SELECT i.id, i.description, i.tags
+            SELECT i.id, i.description, i.tags, i.composition
             FROM items i
             WHERE i.annotation_status = 'annotated'
               AND NOT EXISTS (
@@ -118,7 +122,7 @@ def main(argv: list[str] | None = None) -> int:
     ok = fail = 0
     for idx, row in enumerate(rows, start=1):
         item_id = int(row["id"])
-        text = _embed_input_text(row["description"], row["tags"])
+        text = _embed_input_text(row["description"], row["tags"], row["composition"])
         if not text.strip():
             print(f"[embed] {idx}/{len(rows)} id={item_id} SKIP empty_embed_text", flush=True)
             fail += 1

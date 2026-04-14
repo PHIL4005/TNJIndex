@@ -20,6 +20,7 @@ class ItemDetail(BaseModel):
     thumbnail_url: Optional[str] = None
     tags: list[str]
     description: Optional[str] = None
+    composition: Optional[str] = None
 
 
 class TagCount(BaseModel):

@@ -19,7 +19,7 @@ def get_item(
 ) -> ItemDetail:
     row = conn.execute(
         """
-        SELECT id, title, tags, description, thumbnail_path, image_path
+        SELECT id, title, tags, description, composition, thumbnail_path, image_path
         FROM items
         WHERE id = ?
         """,
@@ -41,4 +41,5 @@ def get_item(
         thumbnail_url=resolve_media_url(row["thumbnail_path"]),
         tags=[str(t) for t in tags_parsed],
         description=row["description"],
+        composition=row["composition"],
     )

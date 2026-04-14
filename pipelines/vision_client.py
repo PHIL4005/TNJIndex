@@ -1,4 +1,4 @@
-"""Vision API calls for image → structured JSON (title / tags / description)."""
+"""Vision API calls for image → structured JSON (title / tags / description / composition)."""
 
 from __future__ import annotations
 
@@ -156,7 +156,7 @@ def annotate_image(
     model: str | None = None,
 ) -> dict[str, Any]:
     """
-    Call Vision API and return a validated dict with title, tags, description.
+    Call Vision API and return a validated dict with title, tags, description, composition.
 
     ``image_ref`` may be a local ``Path`` (file must exist) or an ``http(s)`` URL
     (e.g. public OSS thumbnail/original).
@@ -182,4 +182,5 @@ def annotate_image(
         "title": data["title"],
         "tags": data["tags"],
         "description": data["description"],
+        "composition": data["composition"],
     }

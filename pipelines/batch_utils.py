@@ -176,7 +176,14 @@ def _parse_and_write(client, conn: sqlite3.Connection, batch) -> tuple[int, int]
                     fail += 1
                     continue
 
-                update_annotation(conn, item_id, data["title"], data["tags"], data["description"])
+                update_annotation(
+                    conn,
+                    item_id,
+                    data["title"],
+                    data["tags"],
+                    data["description"],
+                    composition=data["composition"],
+                )
                 print(f"[batch] id={item_id} OK title={data['title']!r}", flush=True)
                 ok += 1
             except Exception as e:  # noqa: BLE001
