@@ -14,6 +14,7 @@
 | `thumbnail_path` | string | Y | 缩略图路径，用于网站列表展示；Phase 01 入库时生成，与原图同目录或同 bucket |
 | `tags` | string[] | N | 扁平标签列表，默认空数组；Phase 02 由 AI 填写 |
 | `description` | string | Y | 自然语言描述画面内容与氛围；Phase 02 由 AI 填写 |
+| `composition` | string | Y | 构图/镜头/主体位置与视觉重心的短摘要（≤200 字）；**S1-v3** 起由 AI 填写；未重跑前可为空 |
 | `source_note` | string | Y | 来源备注（如视频文件名、社区链接等），可为空 |
 | `annotation_status` | enum | N | `raw`（未标注）/ `annotated`（已完成 AI 标注）；用于 Phase 02 增量处理 |
 | `phash` | string | Y | 感知哈希（pHash，64-bit hex），用于入库时去重；汉明距离 ≤ 8 视为重复图片 |
@@ -26,6 +27,7 @@
 - `tags` 逻辑类型为 `string[]`，物理存储格式见 §2/§4（SQLite JSON 列、PG array 列、或向量 DB metadata）。
 - `title` 仅含小写英文、数字、下划线，长度上限 80 字符；AI 生成时在 prompt 中约束格式。
 - `description` 长度上限 500 字符（AI 生成时在 prompt 中约束）。
+- `composition` 长度上限 200 字符（校验见 `pipelines/annotation_validate.py`）；已标注条目应为非空字符串。
 - `thumbnail_path` 可为空：入库时若尚未生成缩略图，前端降级展示原图。
 - `image_path` 在 Phase 01 阶段允许为本地相对路径；迁移至对象存储后原地更新，不变更其他字段。
 - `phash` 在入库时计算并存储；Phase 01 新增，§1 原始草稿未包含此字段。
@@ -114,9 +116,9 @@ data/
 
 ### 目标
 
-将 `annotation_status = raw` 的 Item 批量处理，一次 Vision API 调用同时输出 `title`、`tags`、`description` 三个字段，写回 DB 并更新状态为 `annotated`。
+将 `annotation_status = raw` 的 Item 批量处理，一次 Vision API 调用同时输出 `title`、`tags`、`description`、`composition` 四个字段，写回 DB 并更新状态为 `annotated`。
 
-### Vision 模型选型（S2-v2 更新，2026-04-12）
+### Vision 模型选型（S2-v2 更新，2026-04-12；S1-v3 仅增输出字段 2026-04-14）
 
 **默认**：OpenAI **`gpt-4o`**（`TNJ_VISION_PROVIDER` 未设置或为 `openai`；可用 `TNJ_VISION_MODEL` 覆盖具体型号）。
 
@@ -129,24 +131,12 @@ data/
 
 > 两者均支持 JSON 结构化输出；切换只改环境变量，业务逻辑不变。全库跑批前仍建议用 10 张图做一次人工对比。
 
-### Prompt 设计（S2-v2，2026-04-12 修订）
+### Prompt 设计（S1-v3，2026-04-14；在 S2-v2 骨架上增加 `composition`）
 
-> **变更原因**：目视验收（2026-04-12）发现原 prompt 输出"梗图解说体"，description 充斥情感推断，tags 缺少构图词与搜索语境词，导致向量与图片画面语义脱节。  
-> 修订目标：**只描述可见客观内容 + 折叠搜索短句**，不做情感延伸。
+> **S2-v2（2026-04-12）**：目视验收发现原 prompt 输出「梗图解说体」、向量与画面脱节；修订为**只描述可见客观内容 + 折叠搜索短句**。  
+> **S1-v3（2026-04-14）**：为构图检索增加必填 **`composition`**（≤200 字，镜头/主体相对位置/视觉重心），与 `title`/`tags`/`description` 同次 JSON 输出。全文以仓库 [`pipelines/prompts.py`](../pipelines/prompts.py) 中 `VISION_ANNOTATION_PROMPT` 为准，此处不重复粘贴，避免与代码漂移。
 
-与代码常量 [`pipelines/prompts.py`](pipelines/prompts.py) 保持一致：
-
-```
-你是《猫和老鼠》梗图检索系统的标注专家。只描述图片中可见的客观内容，不做情感推断或叙事延伸。用 JSON 返回以下字段：
-
-{
-  "title": "snake_case 短标题，描述核心动作或角色状态，≤ 80 字符，仅含小写英文/数字/下划线",
-  "tags": ["8～12 个标签，每条为简短词语（非句子），覆盖：① 角色名（tom / jerry / spike / tuffy 等）② 构图/镜头（close_up / two_characters / confrontation / side_by_side 等）③ 可见动作/表情（shocked / fake_smile / arms_crossed / grabbing / running 等）④ 场景/道具（仅写图中可见的，如 phone / office / outdoor / helmet）⑤ 搜索语境词（网友搜索时会输入的词，如：被迫营业、假笑、一脸嫌弃、被抓住、崩溃、无语）"],
-  "description": "两部分：①一句客观描述（谁在做什么、有几个角色、画面构图）。②2～4 个用户会搜索的短句，用顿号分隔。总长 ≤ 500 字符。"
-}
-
-只返回 JSON，不要其他内容。
-```
+JSON 字段概要：`title`、`tags`、`description`（约束同 S2-v2）、**`composition`**（非空、≤200 字）。
 
 ### 处理管线
 
@@ -159,7 +149,7 @@ DB 查询 annotation_status = raw（或 --force 时含 annotated）的 Item
     ▼
 [2] Vision API 调用（JSON mode）—— 实时 或 Batch File API
     │
-    ├─ 成功 → 写回 title / tags / description，status = annotated
+    ├─ 成功 → 写回 title / tags / description / composition，status = annotated
     │
     └─ 失败 → stderr 日志记录原因，status 保持 raw，支持重试
     │
@@ -241,7 +231,7 @@ DB 查询 annotation_status = raw（或 --force 时含 annotated）的 Item
 
 > 因为 `description` 和 `tags` 以中英文混合为主，OpenAI 与 DashScope 在 500 条量级下可择一为主；建议与 §3 Vision 模型尽量同厂商，减少 API Key 管理成本。
 
-**被 embed 的内容**：将 `description` + `tags`（join 为空格分隔字符串）拼接后 embed，作为每条 Item 的语义向量。
+**被 embed 的内容**（**S1-v3** 起，与 [`pipelines/embed.py`](../pipelines/embed.py) 一致）：将每条 Item 上**非空**的 `description`、`composition`、以及 `tags`（JSON 数组 join 为空格分隔字符串）按此顺序用空格拼接后 embed，作为语义向量。
 
 ### 检索流程（Phase 02：CLI + 本地测试页验证）
 
@@ -325,7 +315,7 @@ WHERE EXISTS (
 | 端点 | 方法 | 说明 |
 |------|------|------|
 | `/api/search` | GET | `?q=自然语言&tags=tag1,tag2&limit=20&offset=0`；返回 Item 列表（含 thumbnail_url） |
-| `/api/items/{id}` | GET | 返回单条 Item 详情（含 image_url、tags、description） |
+| `/api/items/{id}` | GET | 返回单条 Item 详情（含 image_url、tags、description、composition） |
 | `/api/tags` | GET | 返回全量标签列表（按出现频次排序），用于 UC-03 标签筛选面板 |
 
 ### 部署流程

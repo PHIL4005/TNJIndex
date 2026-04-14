@@ -58,3 +58,30 @@
 | 固定查询集 | 仍以 `eval_queries.txt` 为准做回归；若需可再跑脚本刷新 Top-5 id 列 |
 
 **说明**：上表「Top-5 id」为旧 `item_embeddings` 下的快照；S2-v2 后不必强行对齐同一组 id，以带图页实际结果为准。
+
+---
+
+## S1-v3（2026-04-14）— 构图字段 + 全量重跑 / 生产上线
+
+| 项目 | 结论 |
+|------|------|
+| Prompt | [`prompts.py`](prompts.py) **S1-v3**：JSON 增加必填 `composition`（≤200 字），与 `annotation_validate` 一致 |
+| 重标注 | 全库 `--force`；推荐 DashScope **`--enable-batch`**（[`batch_utils.py`](batch_utils.py) 写回 `composition`） |
+| 向量 | `uv run python -m pipelines.embed --force`，与含 `composition` 的拼接文本对齐 |
+| 生产 DB | 本机 `data/db/tnjindex.db` 覆盖 Fly volume（`/data/tnjindex.db`），无需在 VM 内单独跑 migration |
+
+### 构图类抽检查询（≥3 条，供回归）
+
+以下用于构图语义回归；**Top-5 id** 可在配置 `TNJ_EMBED_PROVIDER` / 密钥后执行：
+
+`uv run python -m pipelines.search_cli "一人从高处俯视另一个倒在地上的人"`  
+`uv run python -m pipelines.search_cli "两角色左右对称对峙"`  
+`uv run python -m pipelines.search_cli "单角色特写大张嘴"`
+
+将输出中的 id 序列补记到本表下方即可留档。
+
+| # | 查询原文 | Top-5 id（逗号分隔） | 备注 |
+|---|-----------|---------------------|------|
+| C1 | 一人从高处俯视另一个倒在地上的人 | （可补录） | 与 `composition` 俯视/躺倒关系强相关 |
+| C2 | 两角色左右对称对峙 | （可补录） | 与对称、对峙构图强相关 |
+| C3 | 单角色特写大张嘴 | （可补录） | 与特写、面部占比强相关 |

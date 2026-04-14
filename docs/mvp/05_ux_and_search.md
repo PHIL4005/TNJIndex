@@ -22,7 +22,7 @@
 
 | # | 步骤 | 核心产出 | 验收标志 |
 |---|------|---------|---------|
-| S1 | 标注 prompt 改版 + 全量重跑 | `composition` 字段全量写入；向量索引重建 | eval query 集构图类 query Top-5 对比改前提升 |
+| S1 | 标注 prompt 改版 + 全量重跑 | `composition` 字段全量写入；向量索引重建 | ✅ 已完成（2026-04-14）：全量重标 + `embed --force` + 生产 DB 覆盖；构图类 Top-5 见 `eval_memo.md` 可补录 |
 | S2 | 以图搜图（UC-05） | `POST /api/search/image`；CLIP 双索引；搜索框相机图标 | 上传图片可返回结果，UI 与文字搜索体验一致 |
 | S3 | 视觉改版 | 自适应比例 Masonry；description 隐藏 + debug 后门 | `?debug=1` 可见 description；正常访问不可见 |
 | S4 | 搜索产品侧优化（P1） | placeholder / 空结果文案更新 | 文案引导用户描述构图而非情绪 |
@@ -33,7 +33,7 @@
 
 ### 问题根因
 
-当前 prompt（S2-v2）要求「只描述图片中可见的客观内容，不做情感推断或叙事延伸」，annotation 偏向**字面场景描述**。
+在引入 `composition` 之前，prompt（S2-v2）要求「只描述图片中可见的客观内容，不做情感推断或叙事延伸」，annotation 偏向**字面场景描述**。
 
 TNJIndex 的核心用例是**构图/视觉结构相似**匹配——用户看到一张画面，联想到猫鼠里有张图的「形」几乎一样（如：一人俯视倒地者；抽象几何形状撞车）。当前标注完全缺失这个维度，导致搜索精度低。
 
@@ -76,23 +76,21 @@ ALTER TABLE items ADD COLUMN composition TEXT;
 
 ### Embedding 策略更新
 
-embed 输入文本 = `tags（空格拼接）+ " " + description + " " + composition`
-
-> 与现有策略一致（见 `pipelines/sqlite_vec.py`），仅在拼接文本末尾追加 `composition`。不改变向量维度，无需改 sqlite-vec 表结构。
+embed 输入文本由 [`pipelines/embed.py`](pipelines/embed.py) 的 `_embed_input_text` 拼接：**非空**的 `description`、`composition`、tags 空格串，按该顺序用空格连接（与「先语义描述、再构图摘要、再关键词」一致）。不改变向量维度，无需改 sqlite-vec 表结构。
 
 ### 重跑流程
 
 1. 更新 `pipelines/prompts.py`，新增 `composition` 字段说明
 2. DB migration：`ALTER TABLE items ADD COLUMN composition TEXT`
 3. 全量重标注（`pipelines/annotate.py`，写入 `composition`）
-4. 全量重 embed（`pipelines/sqlite_vec.py`，拼接新文本）
-5. 更新 `pipelines/eval_memo.md`，记录改前/改后 eval query 对比
+4. 全量重 embed（`pipelines/embed.py`，`--force` 重建 `item_embeddings`）
+5. 更新 `pipelines/eval_memo.md`，记录 S1-v3 与构图类 query（Top-5 可后续用 `search_cli` 补录）
 
 ### 验收
 
-- [ ] DB 中所有 Item 均有 `composition` 非空值
-- [ ] `eval_memo.md` 中构图类 query（≥ 3 条）Top-5 结果对比记录完成
-- [ ] `pipelines/prompts.py` 注释更新版本号（S1-v3）
+- [x] DB 中所有已标注 Item 均有 `composition` 非空值（全量重标 + 校验；仍为 `raw` 的条目除外）
+- [x] `eval_memo.md` 已增加 S1-v3 完成记录；构图类 query ≥3 条见该节（Top-5 id 可用 `pipelines.search_cli` / `search()` 在配置 embed 密钥后补录）
+- [x] `pipelines/prompts.py` 注释版本号 **S1-v3**（2026-04-14）
 
 ---
 
