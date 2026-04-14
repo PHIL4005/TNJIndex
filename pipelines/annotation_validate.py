@@ -54,4 +54,10 @@ def validate_annotation(data: dict[str, Any]) -> tuple[bool, str]:
     if len(desc) > 500:
         return False, "description_too_long"
 
+    composition = data.get("composition")
+    if not isinstance(composition, str) or not composition.strip():
+        return False, "composition_must_be_non_empty_string"
+    if len(composition) > 200:
+        return False, "composition_too_long"
+
     return True, ""

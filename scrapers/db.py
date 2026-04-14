@@ -51,6 +51,7 @@ CREATE TABLE IF NOT EXISTS items (
     thumbnail_path    TEXT,
     tags              TEXT    NOT NULL DEFAULT '[]',
     description       TEXT,
+    composition       TEXT,
     source_note       TEXT,
     annotation_status TEXT    NOT NULL DEFAULT 'raw'
                               CHECK(annotation_status IN ('raw', 'annotated')),
@@ -58,6 +59,16 @@ CREATE TABLE IF NOT EXISTS items (
     created_at        TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
 );
 """
+
+
+def ensure_composition_column(conn: sqlite3.Connection) -> None:
+    """Ensure ``items.composition`` exists for old databases."""
+    cols = conn.execute("PRAGMA table_info(items)").fetchall()
+    col_names = {row["name"] for row in cols}
+    if "composition" in col_names:
+        return
+    conn.execute("ALTER TABLE items ADD COLUMN composition TEXT")
+    conn.commit()
 
 
 def get_conn() -> sqlite3.Connection:
@@ -75,6 +86,7 @@ def get_conn() -> sqlite3.Connection:
 def init_db() -> None:
     with get_conn() as conn:
         conn.executescript(CREATE_ITEMS_TABLE)
+        ensure_composition_column(conn)
     print(f"[OK] DB initialized: {get_db_path()}")
 
 
@@ -119,14 +131,19 @@ def update_annotation(
     title: str,
     tags: list[str],
     description: str,
+    composition: Optional[str] = None,
 ) -> None:
     conn.execute(
         """
         UPDATE items
-        SET title = ?, tags = ?, description = ?, annotation_status = 'annotated'
+        SET title = ?,
+            tags = ?,
+            description = ?,
+            composition = COALESCE(?, composition),
+            annotation_status = 'annotated'
         WHERE id = ?
         """,
-        (title, json.dumps(tags, ensure_ascii=False), description, item_id),
+        (title, json.dumps(tags, ensure_ascii=False), description, composition, item_id),
     )
     conn.commit()
 
