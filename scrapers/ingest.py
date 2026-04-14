@@ -15,6 +15,8 @@ from pathlib import Path
 import imagehash
 from PIL import Image
 
+from pipelines.clip_embed import index_item_image
+from pipelines.sqlite_vec import ensure_item_image_embeddings
 from scrapers.db import get_all_phashes, get_conn, insert_item
 
 ORIGINALS_DIR = Path(__file__).parent.parent / "data" / "images" / "originals"
@@ -86,6 +88,9 @@ def ingest_image(src_path: "str | Path", source_note: "str | None" = None) -> "i
         filename = f"image_{seq:05d}.jpg"
         dest_original = ORIGINALS_DIR / filename
         dest_thumb = THUMBNAILS_DIR / filename
+        repo_root = Path(__file__).parent.parent
+        rel_original = str(dest_original.relative_to(repo_root))
+        rel_thumb = str(dest_thumb.relative_to(repo_root))
 
         with Image.open(src) as img:
             img.convert("RGB").save(dest_original, "JPEG", quality=ORIGINAL_QUALITY)
@@ -94,10 +99,17 @@ def ingest_image(src_path: "str | Path", source_note: "str | None" = None) -> "i
 
         item_id = insert_item(
             conn,
-            image_path=str(dest_original.relative_to(Path(__file__).parent.parent)),
-            thumbnail_path=str(dest_thumb.relative_to(Path(__file__).parent.parent)),
+            image_path=rel_original,
+            thumbnail_path=rel_thumb,
             source_note=source_note,
             phash=str(new_hash),
+        )
+        ensure_item_image_embeddings(conn)
+        index_item_image(
+            conn,
+            item_id=item_id,
+            thumbnail_path=rel_thumb,
+            image_path=rel_original,
         )
         log.info("[OK] ingested: %s → id=%d (%s)", src.name, item_id, filename)
         return item_id
