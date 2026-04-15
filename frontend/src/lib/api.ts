@@ -15,6 +15,7 @@ export type ItemDetail = {
   thumbnail_url: string | null
   tags: string[]
   description: string | null
+  composition: string | null
 }
 
 export type TagCount = {
@@ -96,6 +97,34 @@ export function fetchSearch(
   offset: number,
 ): Promise<SearchResponse> {
   return apiJson<SearchResponse>(searchUrl(q, tags, limit, offset))
+}
+
+async function apiFormPostJson<T>(path: string, form: FormData): Promise<T> {
+  const res = await fetch(path, {
+    method: "POST",
+    body: form,
+    headers: {
+      Accept: "application/json",
+    },
+  })
+  const body = await readBody(res)
+  if (!res.ok) {
+    throw new ApiError(errorMessage(res.status, body), res.status, body)
+  }
+  return body as T
+}
+
+export function fetchImageSearch(
+  file: File,
+  limit: number,
+  offset: number,
+): Promise<SearchResponse> {
+  const form = new FormData()
+  form.append("file", file)
+  const params = new URLSearchParams()
+  params.set("limit", String(limit))
+  params.set("offset", String(offset))
+  return apiFormPostJson<SearchResponse>(`/api/search/image?${params.toString()}`, form)
 }
 
 export function fetchTags(): Promise<TagCount[]> {

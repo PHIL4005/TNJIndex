@@ -7,7 +7,7 @@ import { MasonryGrid } from "@/components/MasonryGrid"
 import { SearchBar } from "@/components/SearchBar"
 import { Badge } from "@/components/ui/badge"
 import { useInfiniteScroll } from "@/hooks/useInfiniteScroll"
-import { useSearch } from "@/hooks/useSearch"
+import { useSearch, type ResultMode } from "@/hooks/useSearch"
 import { fetchTags, type TagCount } from "@/lib/api"
 
 function sortTagsByCount(tags: TagCount[]): TagCount[] {
@@ -18,7 +18,11 @@ function resultsHeading(
   query: string,
   activeTags: string[],
   total: number,
+  resultMode: ResultMode,
 ): string {
+  if (resultMode === "image") {
+    return `以图搜索 的相似结果（${total} 条）`
+  }
   const q = query.trim()
   if (activeTags.length > 0 && !q) {
     const t = activeTags[0]!
@@ -32,8 +36,21 @@ function resultsHeading(
 }
 
 export default function App() {
-  const { items, total, loading, loadingMore, error, query, activeTags, search, loadMore } =
-    useSearch()
+  const {
+    items,
+    total,
+    loading,
+    loadingMore,
+    error,
+    query,
+    activeTags,
+    resultMode,
+    imagePreviewUrl,
+    search,
+    searchByImage,
+    clearImageSearch,
+    loadMore,
+  } = useSearch()
 
   const [searchInput, setSearchInput] = useState("")
   const [topTags, setTopTags] = useState<TagCount[]>([])
@@ -67,6 +84,24 @@ export default function App() {
     search(q, [])
   }, [search, searchInput])
 
+  const onSearchInputChange = useCallback(
+    (v: string) => {
+      setSearchInput(v)
+      if (resultMode === "image") {
+        clearImageSearch()
+      }
+    },
+    [clearImageSearch, resultMode],
+  )
+
+  const onPickImage = useCallback(
+    (file: File) => {
+      setSearchInput("")
+      searchByImage(file)
+    },
+    [searchByImage],
+  )
+
   const onTagClick = useCallback(
     (name: string) => {
       setSearchInput("")
@@ -86,12 +121,17 @@ export default function App() {
   }, [])
 
   const heading = useMemo(
-    () => resultsHeading(query, activeTags, total),
-    [query, activeTags, total],
+    () => resultsHeading(query, activeTags, total, resultMode),
+    [query, activeTags, total, resultMode],
   )
 
-  const showEmpty =
-    !loading && items.length === 0 && (query.trim().length > 0 || activeTags.length > 0)
+  const showEmptyImage =
+    !loading && items.length === 0 && resultMode === "image"
+  const showEmptyText =
+    !loading &&
+    items.length === 0 &&
+    resultMode === "text" &&
+    (query.trim().length > 0 || activeTags.length > 0)
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -122,9 +162,12 @@ export default function App() {
           <div className="mt-6">
             <SearchBar
               value={searchInput}
-              onValueChange={setSearchInput}
+              onValueChange={onSearchInputChange}
               onSubmitSearch={onSubmitSearch}
               loading={loading}
+              imageAnalyzing={loading && resultMode === "image"}
+              imagePreviewUrl={imagePreviewUrl}
+              onPickImage={onPickImage}
             />
           </div>
         </section>
@@ -158,24 +201,20 @@ export default function App() {
             ) : null}
           </div>
 
-          {showEmpty ? (
+          {showEmptyImage ? (
             <div className="rounded-xl border border-border bg-surface/40 px-6 py-16 text-center">
-              <p className="text-sm text-foreground">没找到相关梗图，换个描述试试？</p>
-              <p className="mt-2 text-xs text-muted-foreground">或从热门标签里点一个：</p>
-              <div className="mt-4 flex flex-wrap justify-center gap-2">
-                {topTags.map((t) => (
-                  <Badge
-                    key={`empty-${t.name}`}
-                    asChild
-                    variant="secondary"
-                    className="cursor-pointer border-border bg-background px-3 py-1 text-xs font-normal hover:bg-background/80"
-                  >
-                    <button type="button" onClick={() => onTagClick(t.name)}>
-                      {t.name}
-                    </button>
-                  </Badge>
-                ))}
-              </div>
+              <p className="text-sm text-foreground">
+                未找到视觉结构相似的截图，换一张图试试？
+              </p>
+            </div>
+          ) : showEmptyText ? (
+            <div className="rounded-xl border border-border bg-surface/40 px-6 py-16 text-center">
+              <p className="text-sm text-foreground">没找到相关截图。</p>
+              <p className="mt-2 text-sm text-muted-foreground">
+                试试描述画面的构图，例如：
+                <br />
+                「一人站着另一人躺着」「两角色对峙」「单角色特写大张嘴」
+              </p>
             </div>
           ) : (
             <>

@@ -24,16 +24,16 @@ export function ImageCard({ item, className, onSelect }: ImageCardProps) {
 
   const cardInner = (
     <>
-      <div className="relative aspect-[4/3] overflow-hidden bg-muted">
+      <div className="relative overflow-hidden bg-muted">
         {item.thumbnail_url ? (
           <img
             src={item.thumbnail_url}
             alt={item.title}
             loading="lazy"
-            className="h-full w-full object-cover"
+            className="block h-auto w-full"
           />
         ) : (
-          <Skeleton className="h-full w-full rounded-none" />
+          <Skeleton className="aspect-[4/3] w-full rounded-none" />
         )}
         {item.score != null ? (
           <div className="pointer-events-none absolute right-2 top-2 rounded-md bg-background/80 px-1.5 py-0.5 text-xs font-medium tabular-nums text-foreground backdrop-blur-sm">

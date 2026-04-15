@@ -21,6 +21,7 @@ function pickImageSrc(detail: ItemDetail): string | null {
 }
 
 export function DetailModal({ open, onOpenChange, itemId }: DetailModalProps) {
+  const isDebug = new URLSearchParams(window.location.search).has("debug")
   const descId = useId()
   const [detail, setDetail] = useState<ItemDetail | null>(null)
   const [loading, setLoading] = useState(false)
@@ -79,7 +80,7 @@ export function DetailModal({ open, onOpenChange, itemId }: DetailModalProps) {
       >
         <DialogTitle className="sr-only">{titleText}</DialogTitle>
         <DialogDescription id={descId} className="sr-only">
-          {detail?.description ?? "查看梗图大图、标签与描述"}
+          查看梗图大图与标签
         </DialogDescription>
 
         {error && !loading ? (
@@ -135,11 +136,17 @@ export function DetailModal({ open, onOpenChange, itemId }: DetailModalProps) {
                       ))}
                     </div>
                   ) : null}
-                  {detail.description ? (
-                    <p className="whitespace-pre-wrap text-sm leading-relaxed text-muted-foreground">{detail.description}</p>
-                  ) : (
-                    <p className="text-sm text-muted-foreground">暂无描述</p>
-                  )}
+                  {isDebug && (detail.description || detail.composition) ? (
+                    <details className="mt-4 border-t border-border pt-3">
+                      <summary className="cursor-pointer text-xs text-muted-foreground">
+                        调试信息
+                      </summary>
+                      <div className="mt-2 space-y-1 font-mono text-xs text-muted-foreground/70">
+                        {detail.description ? <p>{detail.description}</p> : null}
+                        {detail.composition ? <p>{detail.composition}</p> : null}
+                      </div>
+                    </details>
+                  ) : null}
                 </>
               ) : loading ? (
                 <div className="flex flex-col gap-3">

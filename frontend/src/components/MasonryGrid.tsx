@@ -5,7 +5,7 @@ import { ImageCard } from "@/components/ImageCard"
 import { cn } from "@/lib/utils"
 
 const BREAKPOINT_COLS = {
-  default: 4,
+  default: 3,
   1024: 3,
   640: 2,
   480: 1,
