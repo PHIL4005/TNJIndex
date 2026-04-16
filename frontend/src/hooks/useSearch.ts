@@ -21,6 +21,8 @@ export function useSearch() {
 
   const requestIdRef = useRef(0)
   const previewRef = useRef<string | null>(null)
+  /** 纯浏览列表：每次页面挂载一个 seed，分页与同一轮浏览一致；整页刷新后重新随机 */
+  const browseShuffleSeedRef = useRef<number | null>(null)
 
   const revokePreview = useCallback(() => {
     if (previewRef.current) {
@@ -43,7 +45,14 @@ export function useSearch() {
       }
 
       try {
-        const data = await fetchSearch(q, tags, PAGE_SIZE, offset)
+        let shuffleSeed: number | undefined
+        if (!q.trim() && tags.length === 0) {
+          if (browseShuffleSeedRef.current == null) {
+            browseShuffleSeedRef.current = Math.floor(Math.random() * 0x7ffffffe) + 1
+          }
+          shuffleSeed = browseShuffleSeedRef.current
+        }
+        const data = await fetchSearch(q, tags, PAGE_SIZE, offset, shuffleSeed)
         if (requestId !== requestIdRef.current) return
 
         setTotal(data.total)

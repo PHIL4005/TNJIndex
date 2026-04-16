@@ -78,7 +78,13 @@ async function apiJson<T>(path: string, init?: RequestInit): Promise<T> {
   return body as T
 }
 
-function searchUrl(q: string, tags: string[], limit: number, offset: number): string {
+function searchUrl(
+  q: string,
+  tags: string[],
+  limit: number,
+  offset: number,
+  shuffleSeed?: number,
+): string {
   const params = new URLSearchParams()
   params.set("q", q)
   for (const t of tags) {
@@ -87,6 +93,9 @@ function searchUrl(q: string, tags: string[], limit: number, offset: number): st
   }
   params.set("limit", String(limit))
   params.set("offset", String(offset))
+  if (shuffleSeed != null && shuffleSeed > 0) {
+    params.set("shuffle_seed", String(shuffleSeed))
+  }
   return `/api/search?${params.toString()}`
 }
 
@@ -95,8 +104,9 @@ export function fetchSearch(
   tags: string[],
   limit: number,
   offset: number,
+  shuffleSeed?: number,
 ): Promise<SearchResponse> {
-  return apiJson<SearchResponse>(searchUrl(q, tags, limit, offset))
+  return apiJson<SearchResponse>(searchUrl(q, tags, limit, offset, shuffleSeed))
 }
 
 async function apiFormPostJson<T>(path: string, form: FormData): Promise<T> {

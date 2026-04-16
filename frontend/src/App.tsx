@@ -32,7 +32,7 @@ function resultsHeading(
   if (q) {
     return `「${q}」的搜索结果 · ${total} 条`
   }
-  return `全部素材 · ${total} 条`
+  return "随便逛逛"
 }
 
 export default function App() {

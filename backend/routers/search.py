@@ -90,12 +90,30 @@ def _annotated_page_sql(filter_tags: list[str]) -> tuple[str, list]:
     return sql, params
 
 
+def _annotated_browse_shuffle_sql(shuffle_seed: int) -> tuple[str, list]:
+    """纯浏览（无标签）：与 shuffle_seed 绑定的确定性顺序，分页稳定。shuffle_seed=0 时不应调用本函数。"""
+    sql = """
+        SELECT id, title, tags, thumbnail_path, image_path
+        FROM items
+        WHERE annotation_status = 'annotated'
+        ORDER BY ((id * 2654435761 + ?) & 4294967295) ASC
+        LIMIT ? OFFSET ?
+    """
+    return sql, [shuffle_seed]
+
+
 @router.get("/search", response_model=SearchResponse)
 def api_search(
     q: str = "",
     tags: list[str] = Query(default=[]),
     limit: int = Query(20, ge=1, le=100),
     offset: int = Query(0, ge=0),
+    shuffle_seed: int = Query(
+        0,
+        ge=0,
+        le=2147483647,
+        description="纯浏览专用：非 0 时用与 seed 绑定的确定性顺序；0 表示 id DESC",
+    ),
     conn: sqlite3.Connection = Depends(get_db),
 ) -> SearchResponse:
     q_stripped = (q or "").strip()
@@ -109,8 +127,12 @@ def api_search(
         if offset >= cap:
             return SearchResponse(results=[], query=q_stripped, total=total)
         limit_eff = min(limit, cap - offset)
-        page_sql, page_params = _annotated_page_sql(filter_tags)
-        page_params = [*page_params, limit_eff, offset]
+        if not filter_tags and shuffle_seed != 0:
+            page_sql, seed_params = _annotated_browse_shuffle_sql(shuffle_seed)
+            page_params = [*seed_params, limit_eff, offset]
+        else:
+            page_sql, page_params = _annotated_page_sql(filter_tags)
+            page_params = [*page_params, limit_eff, offset]
         rows = conn.execute(page_sql, page_params).fetchall()
         results: list[ItemSummary] = []
         for r in rows:
