@@ -79,10 +79,23 @@ export default function App() {
     loadingMore,
   })
 
-  const onSubmitSearch = useCallback(() => {
-    const q = searchInput.trim()
-    search(q, [])
-  }, [search, searchInput])
+  const onSubmitSearch = useCallback(
+    (fallbackQuery?: string) => {
+      const typed = searchInput.trim()
+      if (typed) {
+        search(typed, [])
+        return
+      }
+      const sample = fallbackQuery?.trim()
+      if (sample) {
+        setSearchInput(sample)
+        search(sample, [])
+        return
+      }
+      search("", [])
+    },
+    [search, searchInput],
+  )
 
   const onSearchInputChange = useCallback(
     (v: string) => {

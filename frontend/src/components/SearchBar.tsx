@@ -30,8 +30,10 @@ function validateLocalImage(file: File): string | null {
 type SearchBarProps = {
   value: string
   onValueChange: (value: string) => void
-  /** 提交当前输入框内容（由父组件决定是否 trim / 调用 search） */
-  onSubmitSearch: () => void
+  /**
+   * 提交搜索。无输入时若传 `fallbackQuery`，则为当前随机示例句（不含「试试：」前缀）。
+   */
+  onSubmitSearch: (fallbackQuery?: string) => void
   loading?: boolean
   /** 以图搜图请求进行中（控制占位符与相机位图标） */
   imageAnalyzing?: boolean
@@ -60,6 +62,15 @@ export function SearchBar({
 
   const submit = () => {
     if (loading) return
+    const typed = value.trim()
+    if (typed) {
+      onSubmitSearch()
+      return
+    }
+    if (!imagePreviewUrl && !imageAnalyzing) {
+      onSubmitSearch(placeholder)
+      return
+    }
     onSubmitSearch()
   }
 
