@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react"
 import { fetchImageSearch, fetchSearch, type ItemSummary } from "@/lib/api"
 
 const PAGE_SIZE = 20
+// 列表总条数上限由后端 `routers/search.py` 强制（纯浏览 128；关键词/标签/以图搜图 32）
 
 export type ResultMode = "text" | "image"
 

@@ -13,6 +13,17 @@ from pipelines.search import search as semantic_search, search_by_image_bytes
 
 router = APIRouter(tags=["search"])
 
+# 列表可返回条数上限（防刷图/滥用）；纯浏览与「有筛选/搜索」区分
+_MAX_BROWSE_LIST_ITEMS = 128
+_MAX_SEARCH_LIST_ITEMS = 32
+
+
+def _max_list_items(q_stripped: str, filter_tags: list[str]) -> int:
+    """无 query、无标签：浏览全库列表；否则为搜索/标签筛选，上限更严。"""
+    if not q_stripped and not filter_tags:
+        return _MAX_BROWSE_LIST_ITEMS
+    return _MAX_SEARCH_LIST_ITEMS
+
 
 def _semantic_distance_threshold_max() -> float:
     """Max sqlite-vec distance to keep; drop rows with distance strictly greater than this."""
@@ -89,12 +100,17 @@ def api_search(
 ) -> SearchResponse:
     q_stripped = (q or "").strip()
     filter_tags = _normalize_filter_tags(tags)
+    cap = _max_list_items(q_stripped, filter_tags)
 
     if not q_stripped:
         count_sql, count_params = _annotated_count_sql(filter_tags)
-        total = int(conn.execute(count_sql, count_params).fetchone()["c"])
+        total_db = int(conn.execute(count_sql, count_params).fetchone()["c"])
+        total = min(total_db, cap)
+        if offset >= cap:
+            return SearchResponse(results=[], query=q_stripped, total=total)
+        limit_eff = min(limit, cap - offset)
         page_sql, page_params = _annotated_page_sql(filter_tags)
-        page_params = [*page_params, limit, offset]
+        page_params = [*page_params, limit_eff, offset]
         rows = conn.execute(page_sql, page_params).fetchall()
         results: list[ItemSummary] = []
         for r in rows:
@@ -136,9 +152,13 @@ def api_search(
         return all(t in norm for t in filter_tags)
 
     filtered = [r for r in raw_rows if _row_has_filter_tags(r)]
+    filtered = filtered[:cap]
 
     total = len(filtered)
-    page_rows = filtered[offset : offset + limit]
+    if offset >= total:
+        return SearchResponse(results=[], query=q_stripped, total=total)
+    limit_eff = min(limit, total - offset)
+    page_rows = filtered[offset : offset + limit_eff]
     results = [
         ItemSummary(
             id=int(r["id"]),
@@ -185,8 +205,13 @@ async def api_search_image(
         for r in raw_rows
         if r.get("score") is None or float(r["score"]) <= dist_max
     ]
+    cap = _MAX_SEARCH_LIST_ITEMS
+    raw_rows = raw_rows[:cap]
     total = len(raw_rows)
-    page_rows = raw_rows[offset : offset + limit]
+    if offset >= total:
+        return SearchResponse(results=[], query="", total=total)
+    limit_eff = min(limit, total - offset)
+    page_rows = raw_rows[offset : offset + limit_eff]
     results = [
         ItemSummary(
             id=int(r["id"]),

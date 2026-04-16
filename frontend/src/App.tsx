@@ -154,11 +154,9 @@ export default function App() {
       <main className="mx-auto max-w-6xl px-4 pb-16 pt-10">
         <section className="mx-auto max-w-xl text-center">
           <h2 className="text-balance text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
-            搜一张对的梗图
+            猫鼠队梗图索引
           </h2>
-          <p className="mt-2 text-sm text-muted-foreground">
-            描述场景或情绪，从索引里捞出最贴切的一张。
-          </p>
+          <p className="mt-2 text-sm text-muted-foreground">不削能玩？</p>
           <div className="mt-6">
             <SearchBar
               value={searchInput}
